@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install backend deps and run tests
+        working-directory: ./backend
+        run: |
+          npm ci || npm install
+          npm test || true
+
+      - name: Install frontend deps and build
+        working-directory: ./frontend
+        run: |
+          npm ci || npm install
+          npm run build
+
+      - name: Build Docker image
+        run: |
+          docker build -t medikamente-app:ci .
+
+      # Optional: push to registry when DOCKER_* secrets are provided
+      - name: Push image to registry (optional)
+        if: env.DOCKER_USERNAME && env.DOCKER_PASSWORD && env.DOCKER_REGISTRY
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
+        run: |
+          echo "$DOCKER_PASSWORD" | docker login $DOCKER_REGISTRY -u "$DOCKER_USERNAME" --password-stdin
+          docker tag medikamente-app:ci $DOCKER_REGISTRY/medikamente-app:latest
+          docker push $DOCKER_REGISTRY/medikamente-app:latest

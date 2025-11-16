@@ -998,6 +998,24 @@ docker-compose build
 docker-compose up -d
 ```
 
+Hinweis: Die `docker-compose.yml` verwendet einen benannten Volume `med-data` für die SQLite-Datei.
+Für lokale Entwicklung kannst du alternativ `./data:/app/data` als Bind-Mount aktivieren (siehe `docker-compose.yml`).
+
+Der Container stellt außerdem einen Health-Endpoint unter `GET /health` bereit. Docker prüft diesen Endpunkt automatisch und markiert den Container als unhealthy, falls er nicht erreichbar ist.
+
+Hinweis zu `package-lock.json`:
+
+Für reproduzierbare Builds ist es empfohlen, die `package-lock.json` für `backend` und `frontend` zu committen. Erzeuge sie lokal mit:
+
+```bash
+cd backend && npm install
+cd ../frontend && npm install
+```
+
+und committe dann die entstandenen `package-lock.json` Dateien.
+
+Es gibt eine GitHub Actions CI (`.github/workflows/ci.yml`), die beim Push die Installation, den Frontend-Build und den Docker-Build durchführt. Optional kann die Workflow-Action das Image in ein Container-Registry pushen, wenn die Secrets `DOCKER_USERNAME`, `DOCKER_PASSWORD` und `DOCKER_REGISTRY` gesetzt sind.
+
 ### 5. Logs prüfen
 
 ```bash
