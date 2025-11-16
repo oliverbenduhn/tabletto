@@ -5,12 +5,12 @@ const dbPath = process.env.DB_PATH || path.join(__dirname, '../../data/medikamen
 const backupsDir = path.join(path.dirname(dbPath), 'backups');
 
 if (!fs.existsSync(dbPath)) {
-  console.error('Database file not found:', dbPath);
-  process.exit(1);
+    console.error('Database file not found:', dbPath);
+    process.exit(1);
 }
 
 if (!fs.existsSync(backupsDir)) {
-  fs.mkdirSync(backupsDir, { recursive: true });
+    fs.mkdirSync(backupsDir, { recursive: true });
 }
 
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
