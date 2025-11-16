@@ -1,12 +1,16 @@
 import MedicationCard from './MedicationCard';
 
-function MedicationList({ medications }) {
+function MedicationList({ medications, emptyState }) {
   if (!medications.length) {
-    return <p className="text-gray-500">Noch keine Medikamente vorhanden.</p>;
+    return (
+      <div className="rounded-2xl border border-dashed border-gray-200 bg-white/70 p-8 text-center text-sm text-gray-500">
+        {emptyState || 'Noch keine Medikamente vorhanden.'}
+      </div>
+    );
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {medications.map(med => (
         <MedicationCard key={med.id} medication={med} />
       ))}
