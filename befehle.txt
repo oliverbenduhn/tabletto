@@ -1,0 +1,14 @@
+# Stack starten
+docker compose up -d
+
+# Logs prüfen
+docker compose logs -f
+
+# Health Check prüfen
+docker compose ps
+
+# API testen (z.B. Health Endpoint)
+curl http://localhost:3000/health
+
+# Container beenden
+docker compose down

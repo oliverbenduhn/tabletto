@@ -925,9 +925,9 @@ CMD ["node", "src/server.js"]
 version: '3.8'
 
 services:
-  medikamente-app:
+  tabletto:
     build: .
-    container_name: medikamente-verwaltung
+    container_name: tabletto-app
     ports:
       - "3000:3000"
     volumes:
@@ -936,7 +936,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:-change-this-secret-key-in-production}
       - NODE_ENV=production
       - PORT=3000
-      - DB_PATH=/app/data/medikamente.db
+      - DB_PATH=/app/data/tabletto.db
     restart: unless-stopped
 ```
 

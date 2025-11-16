@@ -41,7 +41,9 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV DB_PATH=/app/data/medikamente.db
+ENV DB_PATH=/app/data/tabletto.db
+
+LABEL name="Tabletto" description="Medikamentenverwaltung" version="1.0.0"
 
 EXPOSE 3000
 
