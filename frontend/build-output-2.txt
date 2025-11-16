@@ -1,0 +1,13 @@
+
+> medikamente-frontend@1.0.0 build
+> vite build
+
+vite v6.4.1 building for production...
+transforming...
+✓ 47 modules transformed.
+rendering chunks...
+computing gzip size...
+build/index.html                   0.43 kB │ gzip:  0.29 kB
+build/assets/index-Cs7lij2R.css   10.68 kB │ gzip:  2.69 kB
+build/assets/index-_igd3od2.js   177.49 kB │ gzip: 57.35 kB
+✓ built in 1.44s

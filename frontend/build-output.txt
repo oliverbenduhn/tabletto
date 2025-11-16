@@ -1,0 +1,22 @@
+
+> medikamente-frontend@1.0.0 build
+> vite build
+
+vite v6.4.1 building for production...
+✓ 0 modules transformed.
+✗ Build failed in 36ms
+error during build:
+[vite:build-html] [plugin vite:build-import-analysis] src/index.js (9:21): Failed to parse source for import analysis because the content contains invalid JS syntax. If you are using JSX, make sure to name the file with the .jsx or .tsx extension.
+file: /app/frontend/src/index.js:9:21 (/app/frontend/index.html)
+
+ 7:   <React.StrictMode>
+ 8:     <App />
+ 9:   </React.StrictMode>
+                         ^
+10: );
+
+    at getRollupError (file:///app/frontend/node_modules/rollup/dist/es/shared/parseAst.js:401:41)
+    at error (file:///app/frontend/node_modules/rollup/dist/es/shared/parseAst.js:397:42)
+    at Object.error (file:///app/frontend/node_modules/rollup/dist/es/shared/node-entry.js:22115:20)
+    at Object.error (file:///app/frontend/node_modules/rollup/dist/es/shared/node-entry.js:21172:42)
+    at Object.handler (file:///app/frontend/node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:45418:16)
