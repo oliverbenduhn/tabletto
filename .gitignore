@@ -9,6 +9,10 @@ frontend/build/
 *.log
 frontend/*.log
 backend/*.log
+frontend/audit-*.json
+backend/audit-*.json
+frontend/build-output*.txt
+frontend-npm-*.log
 
 # Local env files
 .env
