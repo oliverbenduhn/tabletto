@@ -32,43 +32,57 @@ function MedicationForm({ onSubmit }) {
   };
 
   return (
-    <form className="grid gap-4 rounded-lg border bg-white p-4" onSubmit={handleSubmit}>
-      <h2 className="text-lg font-semibold">Neues Medikament</h2>
-      <Input label="Name" name="name" value={form.name} onChange={handleChange} required />
+    <form className="grid gap-4 rounded-2xl border border-gray-100 bg-white/90 p-5 shadow-sm" onSubmit={handleSubmit}>
+      <div>
+        <p className="text-xs uppercase tracking-wide text-gray-400">Neue Eintragung</p>
+        <h2 className="text-xl font-semibold text-gray-900">Medikament hinzufügen</h2>
+      </div>
       <Input
-        label="Dosierung morgens"
-        name="dosage_morning"
-        type="number"
-        min="0"
-        step="0.5"
-        value={form.dosage_morning}
+        label="Name"
+        name="name"
+        value={form.name}
         onChange={handleChange}
+        placeholder="z. B. Ibuprofen 600"
+        required
       />
-      <Input
-        label="Dosierung abends"
-        name="dosage_evening"
-        type="number"
-        min="0"
-        step="0.5"
-        value={form.dosage_evening}
-        onChange={handleChange}
-      />
-      <Input
-        label="Tabletten pro Packung"
-        name="tablets_per_package"
-        type="number"
-        min="1"
-        value={form.tablets_per_package}
-        onChange={handleChange}
-      />
-      <Input
-        label="Aktueller Bestand"
-        name="current_stock"
-        type="number"
-        min="0"
-        value={form.current_stock}
-        onChange={handleChange}
-      />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Input
+          label="Dosierung morgens"
+          name="dosage_morning"
+          type="number"
+          min="0"
+          step="0.5"
+          value={form.dosage_morning}
+          onChange={handleChange}
+        />
+        <Input
+          label="Dosierung abends"
+          name="dosage_evening"
+          type="number"
+          min="0"
+          step="0.5"
+          value={form.dosage_evening}
+          onChange={handleChange}
+        />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Input
+          label="Tabletten pro Packung"
+          name="tablets_per_package"
+          type="number"
+          min="1"
+          value={form.tablets_per_package}
+          onChange={handleChange}
+        />
+        <Input
+          label="Aktueller Bestand"
+          name="current_stock"
+          type="number"
+          min="0"
+          value={form.current_stock}
+          onChange={handleChange}
+        />
+      </div>
       <Input
         label="Warngrenze (Tage)"
         name="warning_threshold_days"
@@ -77,8 +91,9 @@ function MedicationForm({ onSubmit }) {
         max="30"
         value={form.warning_threshold_days}
         onChange={handleChange}
+        helper="Wir benachrichtigen dich, wenn der Bestand unter diese Grenze fällt."
       />
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="rounded-md bg-rose-50 p-3 text-sm text-rose-600">{error}</p>}
       <Button type="submit">Speichern</Button>
     </form>
   );

@@ -65,32 +65,43 @@ function MedicationDetailPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-transparent">
       <Header />
-      <main className="mx-auto max-w-4xl space-y-6 px-4 py-6">
-        <Button variant="secondary" onClick={() => navigate(-1)}>
-          Zurück
-        </Button>
-        {error && <p className="text-red-600">{error}</p>}
+      <main className="mx-auto max-w-5xl space-y-6 px-4 py-8">
+        <div className="flex flex-wrap items-center gap-3">
+          <Button variant="ghost" onClick={() => navigate(-1)}>
+            ← Zurück
+          </Button>
+          <Button variant="secondary" onClick={handleDelete}>
+            Medikament löschen
+          </Button>
+        </div>
+        {error && <p className="rounded-md bg-rose-50 p-3 text-sm text-rose-600">{error}</p>}
         <MedicationDetail medication={medication} onAddPackage={handleAddPackage} onSetStock={handleSetStock} />
-        <div className="rounded-lg border bg-white p-4">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Verlauf</h2>
-            <Button variant="secondary" onClick={handleDelete}>
-              Löschen
+        <div className="rounded-3xl border border-gray-100 bg-white/90 p-6 shadow-sm">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-gray-400">Historie</p>
+              <h2 className="text-xl font-semibold text-gray-900">Bestandsbewegungen</h2>
+            </div>
+            <Button variant="secondary" onClick={fetchMedication}>
+              Verlauf aktualisieren
             </Button>
           </div>
-          <ul className="space-y-2 text-sm text-gray-600">
+          <ul className="space-y-3 text-sm text-gray-600">
             {history.map(entry => (
-              <li key={entry.id} className="flex justify-between border-b pb-2">
-                <span>{entry.action}</span>
-                <span>
+              <li
+                key={entry.id}
+                className="flex flex-col gap-1 rounded-2xl border border-gray-100 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <span className="font-medium text-gray-800">{entry.action}</span>
+                <span className="text-gray-500">
                   {entry.old_stock} → {entry.new_stock}
                 </span>
-                <span>{formatDate(entry.timestamp)}</span>
+                <span className="text-xs text-gray-400">{formatDate(entry.timestamp)}</span>
               </li>
             ))}
-            {!history.length && <p>Keine Historie vorhanden.</p>}
+            {!history.length && <p className="text-sm text-gray-500">Keine Historie vorhanden.</p>}
           </ul>
         </div>
       </main>
