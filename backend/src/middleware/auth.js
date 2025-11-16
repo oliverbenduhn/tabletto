@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { JWT_SECRET } = require('../config/jwt');
 
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -8,7 +9,7 @@ function authenticateToken(req, res, next) {
     return res.status(401).json({ error: 'Kein Token vorhanden' });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+  jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
       return res.status(403).json({ error: 'Ungültiger Token' });
     }

@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const dbPath = process.env.DB_PATH || path.join(__dirname, '../../data/medikamente.db');
+const dbPath = process.env.DB_PATH || path.join(__dirname, '../../data/tabletto.db');
 const backupsDir = path.join(path.dirname(dbPath), 'backups');
 
 if (!fs.existsSync(dbPath)) {

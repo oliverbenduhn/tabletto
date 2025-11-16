@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { createUser, findByEmail, updateLastLogin } = require('../models/User');
 const { validateEmail, validatePassword } = require('../utils/validation');
+const { JWT_SECRET } = require('../config/jwt');
 
 async function register(req, res) {
   const { email, password } = req.body;
@@ -41,7 +42,7 @@ async function login(req, res) {
     return res.status(401).json({ error: 'Ungültige Anmeldedaten' });
   }
 
-  const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, {
+  const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, {
     expiresIn: '7d'
   });
 

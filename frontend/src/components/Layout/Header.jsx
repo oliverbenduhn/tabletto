@@ -16,7 +16,7 @@ function Header() {
     <header className="sticky top-0 z-10 border-b border-gray-100 bg-white/80 backdrop-blur">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4">
         <Link to="/dashboard" className="text-xl font-semibold text-blue-600">
-          Medikamentenverwaltung
+          Tabletto
         </Link>
         <div className="flex flex-1 items-center justify-end gap-3 text-sm text-gray-600 sm:flex-none">
           <div className="flex items-center gap-3">

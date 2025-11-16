@@ -5,7 +5,7 @@ const path = require('path');
 let db = null;
 
 async function initDatabase() {
-  const dbPath = process.env.DB_PATH || path.join(__dirname, '../../data/medikamente.db');
+  const dbPath = process.env.DB_PATH || path.join(__dirname, '../../data/tabletto.db');
 
   db = await open({
     filename: dbPath,

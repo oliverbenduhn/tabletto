@@ -1,10 +1,10 @@
-# tabletto
-Kleines Tool zur Verwaltung der eigenen Medikamente
-# Medikamenten-Verwaltungssystem - Technische Spezifikation
+# Tabletto
+Tabletto ist ein Tool zur Verwaltung der eigenen Medikamente.
+# Tabletto – Technische Spezifikation
 
 ## Projekt-Übersicht
 
-Ein Webbasiertes System zur Verwaltung von Medikamentenbeständen mit Benutzerauthentifizierung, Verbrauchsberechnung und Warnungen bei niedrigem Bestand.
+Ein webbasiertes System zur Verwaltung von Medikamentenbeständen mit Benutzerauthentifizierung, Verbrauchsberechnung und Warnungen bei niedrigem Bestand.
 
 ## Technologie-Stack
 
@@ -16,7 +16,7 @@ Ein Webbasiertes System zur Verwaltung von Medikamentenbeständen mit Benutzerau
 ## Projektstruktur
 
 ```
-medikamente-app/
+tabletto/
 ├── backend/
 │   ├── src/
 │   │   ├── config/
@@ -500,7 +500,7 @@ const path = require('path');
 let db = null;
 
 async function initDatabase() {
-  const dbPath = process.env.DB_PATH || path.join(__dirname, '../../data/medikamente.db');
+  const dbPath = process.env.DB_PATH || path.join(__dirname, '../../data/tabletto.db');
   
   db = await open({
     filename: dbPath,
@@ -910,7 +910,7 @@ RUN mkdir -p /app/data
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV DB_PATH=/app/data/medikamente.db
+ENV DB_PATH=/app/data/tabletto.db
 
 EXPOSE 3000
 
@@ -964,7 +964,7 @@ JWT_SECRET=your-very-secure-secret-key-here
 PORT=3000
 
 # Database Path
-DB_PATH=/app/data/medikamente.db
+DB_PATH=/app/data/tabletto.db
 
 # Node Environment
 NODE_ENV=production
@@ -975,8 +975,8 @@ NODE_ENV=production
 ### 1. Repository klonen oder Dateien erstellen
 
 ```bash
-mkdir medikamente-app
-cd medikamente-app
+mkdir tabletto
+cd tabletto
 ```
 
 ### 2. Umgebungsvariablen setzen
@@ -998,7 +998,7 @@ docker-compose build
 docker-compose up -d
 ```
 
-Hinweis: Die `docker-compose.yml` verwendet einen benannten Volume `med-data` für die SQLite-Datei.
+Hinweis: Die `docker-compose.yml` verwendet einen benannten Volume `tabletto-data` für die SQLite-Datei.
 Für lokale Entwicklung kannst du alternativ `./data:/app/data` als Bind-Mount aktivieren (siehe `docker-compose.yml`).
 
 Der Container stellt außerdem einen Health-Endpoint unter `GET /health` bereit. Docker prüft diesen Endpunkt automatisch und markiert den Container als unhealthy, falls er nicht erreichbar ist.
@@ -1034,7 +1034,7 @@ curl http://localhost:3000/api/auth/register \
 
 1. **JWT_SECRET**: MUSS in Produktion durch einen sicheren, zufälligen String ersetzt werden
 2. **HTTPS**: In Produktion sollte die App hinter einem Reverse Proxy mit HTTPS laufen
-3. **Backups**: Regelmäßige Backups der SQLite-Datenbank unter `/app/data/medikamente.db`
+3. **Backups**: Regelmäßige Backups der SQLite-Datenbank unter `/app/data/tabletto.db`
 4. **Updates**: Regelmäßige Updates der Dependencies durchführen
 
 ## Entwicklung
@@ -1072,14 +1072,14 @@ npm test
 ### Backup erstellen
 
 ```bash
-docker exec medikamente-verwaltung sqlite3 /app/data/medikamente.db ".backup /app/data/backup.db"
-docker cp medikamente-verwaltung:/app/data/backup.db ./backup-$(date +%Y%m%d).db
+docker exec tabletto-app sqlite3 /app/data/tabletto.db ".backup /app/data/backup.db"
+docker cp tabletto-app:/app/data/backup.db ./backup-$(date +%Y%m%d).db
 ```
 
 ### Logs einsehen
 
 ```bash
-docker-compose logs -f medikamente-app
+docker-compose logs -f tabletto-app
 ```
 
 ### Container neu starten
@@ -1092,6 +1092,6 @@ docker-compose restart
 
 ```bash
 docker-compose down
-rm -rf data/medikamente.db
+rm -rf data/tabletto.db
 docker-compose up -d
 ```
