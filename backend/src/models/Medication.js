@@ -1,0 +1,83 @@
+const { getDatabase } = require('../config/database');
+
+async function getAllByUser(userId) {
+  const db = getDatabase();
+  return db.all('SELECT * FROM medications WHERE user_id = ? ORDER BY created_at DESC', [userId]);
+}
+
+async function getById(id, userId) {
+  const db = getDatabase();
+  return db.get('SELECT * FROM medications WHERE id = ? AND user_id = ?', [id, userId]);
+}
+
+async function createMedication(userId, data) {
+  const db = getDatabase();
+  const result = await db.run(
+    `INSERT INTO medications (
+      user_id, name, dosage_morning, dosage_evening, tablets_per_package,
+      current_stock, warning_threshold_days
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      userId,
+      data.name,
+      data.dosage_morning,
+      data.dosage_evening,
+      data.tablets_per_package,
+      data.current_stock,
+      data.warning_threshold_days
+    ]
+  );
+  return getById(result.lastID, userId);
+}
+
+async function updateMedication(id, userId, data) {
+  const db = getDatabase();
+  const fields = [];
+  const values = [];
+
+  const editableFields = [
+    'name',
+    'dosage_morning',
+    'dosage_evening',
+    'tablets_per_package',
+    'current_stock',
+    'warning_threshold_days'
+  ];
+
+  editableFields.forEach(field => {
+    if (data[field] !== undefined) {
+      fields.push(`${field} = ?`);
+      values.push(data[field]);
+    }
+  });
+
+  if (!fields.length) {
+    return getById(id, userId);
+  }
+
+  values.push(id, userId);
+
+  await db.run(
+    `UPDATE medications SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`,
+    values
+  );
+
+  return getById(id, userId);
+}
+
+async function deleteMedication(id, userId) {
+  const db = getDatabase();
+  const result = await db.run('DELETE FROM medications WHERE id = ? AND user_id = ?', [id, userId]);
+  return result.changes > 0;
+}
+
+async function updateStock(id, userId, newStock) {
+  const db = getDatabase();
+  await db.run(
+    'UPDATE medications SET current_stock = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?',
+    [newStock, id, userId]
+  );
+  return getById(id, userId);
+}
+
+module.exports = { getAllByUser, getById, createMedication, updateMedication, deleteMedication, updateStock };
