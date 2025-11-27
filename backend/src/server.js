@@ -8,6 +8,7 @@ const { getDatabase } = require('./config/database');
 const authRoutes = require('./routes/auth');
 const medicationRoutes = require('./routes/medications');
 const userRoutes = require('./routes/user');
+const dataRoutes = require('./routes/data');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,6 +21,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/medications', medicationRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/data', dataRoutes);
 
 const frontendBuildPath = path.join(__dirname, '../../frontend/build');
 app.use(express.static(frontendBuildPath));

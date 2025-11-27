@@ -99,6 +99,17 @@ class ApiService {
       body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
     });
   }
+
+  async exportData() {
+    return this.request('/data/export');
+  }
+
+  async importData(data) {
+    return this.request('/data/import', {
+      method: 'POST',
+      body: JSON.stringify({ data })
+    });
+  }
 }
 
 export default new ApiService();
