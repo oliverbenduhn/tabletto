@@ -1,0 +1,64 @@
+# Production-optimized Docker Compose configuration for Tabletto
+# Usage: docker compose -f docker-compose.prod.yml up -d
+
+services:
+  tabletto:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tabletto-app
+    ports:
+      - "3000:3000"
+    volumes:
+      # Use named volume for production (better for Docker-managed storage)
+      - tabletto-data:/app/data
+    environment:
+      # IMPORTANT: Set these in production .env file!
+      - JWT_SECRET=${JWT_SECRET}
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_PATH=/app/data/tabletto.db
+      # Optional: Set allowed frontend origin for CORS
+      # - FRONTEND_ORIGIN=https://your-domain.com
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - tabletto-network
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    # Resource limits (adjust based on your needs)
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  tabletto-data:
+    driver: local
+    # Optional: Use a specific mount point
+    # driver_opts:
+    #   type: none
+    #   device: /path/to/your/data
+    #   o: bind
+
+networks:
+  tabletto-network:
+    driver: bridge

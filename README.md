@@ -1,5 +1,39 @@
 # Tabletto
-Tabletto ist ein Tool zur Verwaltung der eigenen Medikamente.
+
+Tabletto ist ein webbasiertes Tool zur Verwaltung der eigenen Medikamente mit Bestandsverwaltung, Verbrauchsberechnung und automatischen Warnungen bei niedrigem Bestand.
+
+## Schnellstart
+
+### Installation mit Docker (empfohlen)
+
+```bash
+# Repository klonen
+git clone <repository-url> tabletto
+cd tabletto
+
+# Umgebungsvariablen konfigurieren
+cp .env.example .env
+# Bearbeite .env und setze ein sicheres JWT_SECRET
+
+# Container starten
+docker compose up -d
+```
+
+Die Anwendung ist nun verfügbar unter: **<http://localhost:3000>**
+
+📖 Ausführliche Installationsanleitung: [INSTALL.md](INSTALL.md)
+
+## Features
+
+- Benutzer-Authentifizierung mit JWT
+- Medikamentenverwaltung mit individuellen Dosierungen (morgens/abends)
+- Automatische Berechnung des Verbrauchs und verbleibender Tage
+- Warnsystem bei niedrigem Bestand
+- Verlaufshistorie aller Bestandsänderungen
+- Responsive Web-Interface
+- Docker-basiertes Deployment
+- Sichere SQLite-Datenbank
+
 # Tabletto – Technische Spezifikation
 
 ## Projekt-Übersicht

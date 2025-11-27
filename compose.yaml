@@ -1,23 +1,18 @@
 services:
   tabletto:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: tabletto-app
+    build: .
+    container_name: tabletto
     ports:
       - "3000:3000"
     volumes:
-      # Named volume for production-stable DB storage
       - tabletto-data:/app/data
-      # For local development, you can uncomment the line below instead:
-      # - ./data:/app/data
     environment:
-      - JWT_SECRET=${JWT_SECRET:-change-this-secret-key-in-production}
-      - NODE_ENV=${NODE_ENV:-production}
-      - PORT=${PORT:-3000}
-      - DB_PATH=${DB_PATH:-/app/data/tabletto.db}
-    env_file:
-      - .env
+      # WICHTIG: Ändere JWT_SECRET für Produktion!
+      # Generiere ein sicheres Secret z.B. mit: openssl rand -base64 32
+      - JWT_SECRET=${JWT_SECRET:-please-change-this-secret-in-production}
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_PATH=/app/data/tabletto.db
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
@@ -25,13 +20,7 @@ services:
       retries: 3
       start_period: 40s
     restart: unless-stopped
-    networks:
-      - tabletto-network
 
 volumes:
   tabletto-data:
     driver: local
-
-networks:
-  tabletto-network:
-    driver: bridge
