@@ -1,5 +1,11 @@
 # Tabletto
 
+[![Version](https://img.shields.io/github/v/release/oliverbenduhn/tabletto?label=Version&color=blue)](https://github.com/oliverbenduhn/tabletto/releases)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Node.js](https://img.shields.io/badge/Node.js-18-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://reactjs.org/)
+
 Tabletto ist ein webbasiertes Tool zur Verwaltung der eigenen Medikamente mit Bestandsverwaltung, Verbrauchsberechnung und automatischen Warnungen bei niedrigem Bestand.
 
 ## Schnellstart
@@ -23,16 +29,17 @@ Die Anwendung ist nun verfügbar unter: **<http://localhost:3000>**
 
 📖 Ausführliche Installationsanleitung: [INSTALL.md](INSTALL.md)
 
-## Features
+## ✨ Features
 
-- Benutzer-Authentifizierung mit JWT
-- Medikamentenverwaltung mit individuellen Dosierungen (morgens/abends)
-- Automatische Berechnung des Verbrauchs und verbleibender Tage
-- Warnsystem bei niedrigem Bestand
-- Verlaufshistorie aller Bestandsänderungen
-- Responsive Web-Interface
-- Docker-basiertes Deployment
-- Sichere SQLite-Datenbank
+- 🔐 **Benutzer-Authentifizierung** mit JWT
+- 💊 **Medikamentenverwaltung** mit individuellen Dosierungen (morgens/abends)
+- 📊 **Automatische Berechnung** des Verbrauchs und verbleibender Tage
+- ⚠️ **Warnsystem** bei niedrigem Bestand
+- 📜 **Verlaufshistorie** aller Bestandsänderungen
+- 📦 **Import/Export** - Komplette Datensicherung als JSON
+- 📱 **Responsive Web-Interface** - optimiert für Desktop & Mobile
+- 🐳 **Docker-basiertes Deployment** - One-Click-Installation
+- 🔒 **Sichere SQLite-Datenbank** mit Verschlüsselung
 
 # Tabletto – Technische Spezifikation
 
