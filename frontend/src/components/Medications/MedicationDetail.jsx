@@ -19,6 +19,7 @@ function MedicationDetail({ medication, onAddPackage, onSetStock }) {
 
   const info = [
     { label: 'Dosierung morgens', value: medication.dosage_morning },
+    { label: 'Dosierung mittags', value: medication.dosage_noon },
     { label: 'Dosierung abends', value: medication.dosage_evening },
     { label: 'Tabletten pro Packung', value: medication.tablets_per_package },
     { label: 'Täglicher Verbrauch', value: medication.daily_consumption },

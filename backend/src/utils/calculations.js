@@ -1,5 +1,5 @@
 function calculateMedicationStats(medication) {
-  const dailyConsumption = (medication.dosage_morning || 0) + (medication.dosage_evening || 0);
+  const dailyConsumption = (medication.dosage_morning || 0) + (medication.dosage_noon || 0) + (medication.dosage_evening || 0);
 
   if (dailyConsumption === 0) {
     return {

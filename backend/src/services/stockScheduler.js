@@ -25,7 +25,7 @@ function calculateConsumption(medication) {
   const daysElapsed = Math.floor(millisecondsDiff / (1000 * 60 * 60 * 24));
 
   // Täglicher Verbrauch
-  const dailyConsumption = medication.dosage_morning + medication.dosage_evening;
+  const dailyConsumption = medication.dosage_morning + medication.dosage_noon + medication.dosage_evening;
 
   // Gesamtverbrauch
   return daysElapsed * dailyConsumption;

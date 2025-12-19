@@ -30,6 +30,7 @@ async function initDatabase() {
       user_id INTEGER NOT NULL,
       name TEXT NOT NULL,
       dosage_morning REAL NOT NULL DEFAULT 0,
+      dosage_noon REAL NOT NULL DEFAULT 0,
       dosage_evening REAL NOT NULL DEFAULT 0,
       tablets_per_package INTEGER NOT NULL,
       current_stock REAL NOT NULL DEFAULT 0,
@@ -76,7 +77,24 @@ async function initDatabase() {
       console.log('Migration erfolgreich abgeschlossen');
     }
   } catch (error) {
-    console.error('Fehler bei der Migration:', error);
+    console.error('Fehler bei der Migration (last_stock_measured_at):', error);
+    // Don't fail initialization if migration fails
+  }
+
+  // Migration: Add dosage_noon column if it doesn't exist
+  try {
+    const tableInfo = await db.all("PRAGMA table_info(medications)");
+    const hasDosageNoon = tableInfo.some(col => col.name === 'dosage_noon');
+
+    if (!hasDosageNoon) {
+      console.log('Führe Migration aus: Füge dosage_noon Spalte hinzu');
+      await db.exec(`
+        ALTER TABLE medications ADD COLUMN dosage_noon REAL NOT NULL DEFAULT 0;
+      `);
+      console.log('Migration dosage_noon erfolgreich abgeschlossen');
+    }
+  } catch (error) {
+    console.error('Fehler bei der Migration (dosage_noon):', error);
     // Don't fail initialization if migration fails
   }
 

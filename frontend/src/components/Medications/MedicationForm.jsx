@@ -5,6 +5,7 @@ import Button from '../Common/Button';
 const initialState = {
   name: '',
   dosage_morning: 0,
+  dosage_noon: 0,
   dosage_evening: 0,
   tablets_per_package: 0,
   current_stock: 0,
@@ -32,7 +33,7 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
   };
 
   const applyPreset = preset => {
-    setForm(prev => ({ ...prev, dosage_morning: preset, dosage_evening: preset }));
+    setForm(prev => ({ ...prev, dosage_morning: preset, dosage_noon: preset, dosage_evening: preset }));
   };
 
   const handleSubmit = e => {
@@ -74,7 +75,7 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
         placeholder="z. B. Ibuprofen 600"
         required
       />
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-3">
         <Input
           label="Dosierung morgens"
           name="dosage_morning"
@@ -83,7 +84,15 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
           step="0.5"
           value={form.dosage_morning}
           onChange={handleChange}
-          helper="Nutze die Schnellwahl unten für Standarddosierungen."
+        />
+        <Input
+          label="Dosierung mittags"
+          name="dosage_noon"
+          type="number"
+          min="0"
+          step="0.5"
+          value={form.dosage_noon}
+          onChange={handleChange}
         />
         <Input
           label="Dosierung abends"
@@ -93,7 +102,6 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
           step="0.5"
           value={form.dosage_evening}
           onChange={handleChange}
-          helper="Kann unabhängig angepasst werden."
         />
       </div>
       <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">

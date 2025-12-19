@@ -14,13 +14,14 @@ async function createMedication(userId, data) {
   const db = getDatabase();
   const result = await db.run(
     `INSERT INTO medications (
-      user_id, name, dosage_morning, dosage_evening, tablets_per_package,
+      user_id, name, dosage_morning, dosage_noon, dosage_evening, tablets_per_package,
       current_stock, warning_threshold_days
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       userId,
       data.name,
       data.dosage_morning,
+      data.dosage_noon || 0,
       data.dosage_evening,
       data.tablets_per_package,
       data.current_stock,
@@ -38,6 +39,7 @@ async function updateMedication(id, userId, data) {
   const editableFields = [
     'name',
     'dosage_morning',
+    'dosage_noon',
     'dosage_evening',
     'tablets_per_package',
     'current_stock',
