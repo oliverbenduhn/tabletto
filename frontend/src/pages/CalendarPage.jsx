@@ -118,9 +118,10 @@ function CalendarPage() {
         )}
 
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <FullCalendar
-            plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-            initialView="dayGridMonth"
+            <FullCalendar
+              plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+              initialView="dayGridMonth"
+              eventOrder="daysRemaining"
             headerToolbar={{
               left: 'prev,next today',
               center: 'title',
