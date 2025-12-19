@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import api from '../../services/api';
 import Menu from '../Common/Menu';
@@ -7,6 +7,7 @@ import packageJson from '../../../package.json';
 
 function Header() {
   const navigate = useNavigate();
+  const location = useLocation();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const [showImportExport, setShowImportExport] = useState(false);
 
@@ -21,14 +22,41 @@ function Header() {
 
   const initials = user.email ? user.email.charAt(0).toUpperCase() : '?';
 
+  const isCalendarPage = location.pathname === '/calendar';
+  const isDashboardPage = location.pathname === '/dashboard';
+
   return (
     <>
       <header className="sticky top-0 z-10 border-b border-gray-100 bg-white/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4">
-          <Link to="/dashboard" className="flex items-baseline gap-2 text-xl font-semibold text-blue-600">
-            <span>Tabletto</span>
-            <span className="text-xs font-normal text-gray-400">v{packageJson.version}</span>
-          </Link>
+          <div className="flex items-center gap-6">
+            <Link to="/dashboard" className="flex items-baseline gap-2 text-xl font-semibold text-blue-600">
+              <span>Tabletto</span>
+              <span className="text-xs font-normal text-gray-400">v{packageJson.version}</span>
+            </Link>
+            <nav className="hidden gap-2 sm:flex">
+              <Link
+                to="/dashboard"
+                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                  isDashboardPage
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                Dashboard
+              </Link>
+              <Link
+                to="/calendar"
+                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                  isCalendarPage
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                Kalender
+              </Link>
+            </nav>
+          </div>
           <div className="flex flex-1 items-center justify-end gap-3 text-sm text-gray-600 sm:flex-none">
             <div className="flex items-center gap-3">
               <span className="hidden text-gray-500 sm:inline">{user.email}</span>
@@ -45,6 +73,16 @@ function Header() {
                 </button>
               }
             >
+              <Menu.Item
+                icon="📊"
+                label="Dashboard"
+                onClick={() => navigate('/dashboard')}
+              />
+              <Menu.Item
+                icon="📅"
+                label="Kalender"
+                onClick={() => navigate('/calendar')}
+              />
               <Menu.Item
                 icon="📦"
                 label="Import / Export"
