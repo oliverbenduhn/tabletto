@@ -44,24 +44,37 @@ function CalendarPage() {
         const depletionDate = new Date(med.depletion_date);
         depletionDate.setHours(0, 0, 0, 0);
 
-        // Start-Datum ist heute (wir zeigen nur zukünftige Verfügbarkeit)
-        const startDate = new Date(Math.max(today.getTime(), today.getTime()));
+        // Start-Datum ist heute
+        const startDate = new Date(today);
 
         // End-Datum ist depletion_date + 1 Tag (FullCalendar end ist exklusiv)
         const endDate = new Date(depletionDate);
         endDate.setDate(endDate.getDate() + 1);
 
-        // Farbe basierend auf Warning-Status
-        let backgroundColor, borderColor;
-        if (med.warning_status === 'critical') {
+        // Farbe basierend auf Dringlichkeit
+        let backgroundColor, borderColor, textColor;
+        const daysRemaining = med.days_remaining || 0;
+
+        if (daysRemaining <= 0) {
+          backgroundColor = '#dc2626'; // red-600
+          borderColor = '#991b1b'; // red-800
+          textColor = '#ffffff';
+        } else if (daysRemaining <= 3) {
           backgroundColor = '#ef4444'; // red-500
           borderColor = '#dc2626'; // red-600
-        } else if (med.warning_status === 'warning') {
+          textColor = '#ffffff';
+        } else if (daysRemaining <= 7) {
           backgroundColor = '#f59e0b'; // amber-500
           borderColor = '#d97706'; // amber-600
+          textColor = '#ffffff';
+        } else if (daysRemaining <= 14) {
+          backgroundColor = '#fbbf24'; // amber-400
+          borderColor = '#f59e0b'; // amber-500
+          textColor = '#78350f'; // amber-900
         } else {
           backgroundColor = '#10b981'; // green-500
           borderColor = '#059669'; // green-600
+          textColor = '#ffffff';
         }
 
         return {
@@ -71,11 +84,14 @@ function CalendarPage() {
           end: endDate.toISOString().split('T')[0],
           backgroundColor,
           borderColor,
+          textColor,
+          daysRemaining: med.days_remaining || 0,
           extendedProps: {
             medication: med,
             daysRemaining: med.days_remaining,
             currentStock: med.current_stock,
-            dailyConsumption: med.daily_consumption
+            dailyConsumption: med.daily_consumption,
+            depletionDate: depletionDate.toISOString().split('T')[0]
           }
         };
       });
@@ -118,10 +134,9 @@ function CalendarPage() {
         )}
 
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <FullCalendar
-              plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-              initialView="dayGridMonth"
-              eventOrder="daysRemaining"
+          <FullCalendar
+            plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+            initialView="dayGridMonth"
             headerToolbar={{
               left: 'prev,next today',
               center: 'title',
@@ -136,51 +151,56 @@ function CalendarPage() {
             }}
             events={events}
             eventClick={handleEventClick}
+            eventOrder="daysRemaining"
             height="auto"
-            firstDay={1} // Montag als erster Tag
+            firstDay={1}
             weekNumbers={true}
             weekText="KW"
-            eventTimeFormat={{
-              hour: '2-digit',
-              minute: '2-digit',
-              meridiem: false
+            dayHeaderFormat={{ weekday: 'short' }}
+            dayCellDidMount={(arg) => {
+              const dateStr = arg.date.toISOString().split('T')[0];
+              // Finde Medikamente, die an diesem Tag leer gehen
+              const depletingToday = events.filter(e => e.extendedProps.depletionDate === dateStr);
+
+              if (depletingToday.length > 0) {
+                // Erstelle roten Indikator für jedes Medikament
+                depletingToday.forEach(event => {
+                  const indicator = document.createElement('div');
+                  indicator.className = 'fc-daygrid-day-top';
+                  indicator.style.cssText = 'background: #dc2626; color: white; padding: 2px 4px; border-radius: 4px; font-size: 10px; font-weight: bold; text-align: center; margin: 2px;';
+                  indicator.textContent = `⚠️ ${event.title} leer`;
+                  arg.el.querySelector('.fc-daygrid-day-frame')?.prepend(indicator);
+                });
+              }
             }}
             eventContent={(arg) => {
-              const { medication, daysRemaining, currentStock } = arg.event.extendedProps;
+              const { daysRemaining } = arg.event.extendedProps;
+
               return (
-                <div className="fc-event-main-frame px-1">
+                <div className="fc-event-main-frame" style={{ padding: '2px 4px' }}>
                   <div className="fc-event-title-container">
-                    <div className="fc-event-title fc-sticky font-semibold">
+                    <div className="fc-event-title fc-sticky" style={{ fontWeight: 600, fontSize: '12px' }}>
                       {arg.event.title}
                     </div>
                   </div>
-                  <div className="text-xs opacity-90">
-                    Bestand: {currentStock} | {daysRemaining} Tag{daysRemaining !== 1 ? 'e' : ''}
+                  <div style={{ fontSize: '10px', opacity: 0.9, marginTop: '2px' }}>
+                    {daysRemaining <= 0 ? '⛔ LEER' : `${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''}`}
                   </div>
                 </div>
               );
             }}
-            dayMaxEvents={3}
+            dayMaxEvents={4}
             moreLinkText="weitere"
           />
         </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-3">
-          <div className="rounded-lg bg-green-50 p-4">
+        <div className="mt-6 grid gap-4 sm:grid-cols-5">
+          <div className="rounded-lg bg-red-50 p-4">
             <div className="flex items-center gap-3">
-              <div className="h-4 w-4 rounded bg-green-500"></div>
+              <div className="h-4 w-4 rounded bg-red-600"></div>
               <div>
-                <p className="font-semibold text-green-900">Gut versorgt</p>
-                <p className="text-sm text-green-700">&gt; 14 Tage Bestand</p>
-              </div>
-            </div>
-          </div>
-          <div className="rounded-lg bg-amber-50 p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-4 w-4 rounded bg-amber-500"></div>
-              <div>
-                <p className="font-semibold text-amber-900">Warnung</p>
-                <p className="text-sm text-amber-700">7-14 Tage Bestand</p>
+                <p className="font-semibold text-red-900">Leer</p>
+                <p className="text-sm text-red-700">0 Tage</p>
               </div>
             </div>
           </div>
@@ -188,8 +208,35 @@ function CalendarPage() {
             <div className="flex items-center gap-3">
               <div className="h-4 w-4 rounded bg-red-500"></div>
               <div>
-                <p className="font-semibold text-red-900">Kritisch</p>
-                <p className="text-sm text-red-700">&lt; 7 Tage Bestand</p>
+                <p className="font-semibold text-red-900">Sehr kritisch</p>
+                <p className="text-sm text-red-700">1-3 Tage</p>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-lg bg-amber-50 p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-4 w-4 rounded bg-amber-500"></div>
+              <div>
+                <p className="font-semibold text-amber-900">Kritisch</p>
+                <p className="text-sm text-amber-700">4-7 Tage</p>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-lg bg-amber-50 p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-4 w-4 rounded bg-amber-400"></div>
+              <div>
+                <p className="font-semibold text-amber-900">Warnung</p>
+                <p className="text-sm text-amber-700">8-14 Tage</p>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-lg bg-green-50 p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-4 w-4 rounded bg-green-500"></div>
+              <div>
+                <p className="font-semibold text-green-900">Gut</p>
+                <p className="text-sm text-green-700">&gt; 14 Tage</p>
               </div>
             </div>
           </div>
