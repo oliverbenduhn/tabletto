@@ -1,6 +1,6 @@
 {
   "name": "tabletto-backend",
-  "version": "1.0.11",
+  "version": "1.1.1",
   "description": "Backend für Tabletto - Medikamentenverwaltung",
   "main": "src/server.js",
   "type": "commonjs",
