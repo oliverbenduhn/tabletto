@@ -54,10 +54,20 @@ const statusIcons = {
 
 function MedicationCard({ medication, layout = 'grid' }) {
   const daysRemaining = Number.isFinite(medication.days_remaining) ? medication.days_remaining : null;
-  const warningThreshold = medication.warning_threshold_days || daysRemaining || 1;
-  const percentage = daysRemaining
+
+  // Handle negative days (overdue medications)
+  const isOverdue = daysRemaining !== null && daysRemaining < 0;
+  const daysDisplay = isOverdue
+    ? `${Math.abs(daysRemaining).toFixed(1)} Tage überfällig`
+    : daysRemaining !== null
+      ? `${daysRemaining.toFixed(1)}`
+      : 'Unbegrenzt';
+
+  const warningThreshold = medication.warning_threshold_days || Math.abs(daysRemaining) || 1;
+  const percentage = daysRemaining !== null && !isOverdue
     ? Math.max(0, Math.min(100, (daysRemaining / warningThreshold) * 100))
-    : 100;
+    : isOverdue ? 0 : 100;
+
   const daysColor =
     medication.warning_status === 'critical'
       ? 'text-rose-600'
@@ -93,7 +103,9 @@ function MedicationCard({ medication, layout = 'grid' }) {
       >
         <div>
           <dt className="text-xs uppercase text-gray-400">Bestand</dt>
-          <dd className="text-base font-semibold text-gray-900">{medication.current_stock}</dd>
+          <dd className={`text-base font-semibold ${medication.current_stock < 0 ? 'text-rose-600' : 'text-gray-900'}`}>
+            {medication.current_stock}
+          </dd>
         </div>
         <div>
           <dt className="text-xs uppercase text-gray-400">Täglicher Verbrauch</dt>
@@ -112,10 +124,10 @@ function MedicationCard({ medication, layout = 'grid' }) {
         <div className="flex items-center justify-between text-xs text-gray-500">
           <span className="flex items-center gap-2">
             <span className={`h-2 w-2 rounded-full ${statusDot[medication.warning_status]}`} />
-            Verbleibende Tage
+            {isOverdue ? 'Überfällig' : 'Verbleibende Tage'}
           </span>
           <span className={`font-semibold ${daysColor}`}>
-            {daysRemaining !== null ? daysRemaining.toFixed(1) : 'Unbegrenzt'}
+            {daysDisplay}
           </span>
         </div>
         <div className="h-2 rounded-full bg-gray-100">

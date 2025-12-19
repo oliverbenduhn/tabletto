@@ -36,6 +36,7 @@ async function initDatabase() {
       warning_threshold_days INTEGER NOT NULL DEFAULT 7,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      last_stock_measured_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
@@ -56,6 +57,28 @@ async function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_history_medication ON history(medication_id);
     CREATE INDEX IF NOT EXISTS idx_history_user ON history(user_id);
   `);
+
+  // Migration: Add last_stock_measured_at column if it doesn't exist
+  try {
+    const tableInfo = await db.all("PRAGMA table_info(medications)");
+    const hasLastStockMeasured = tableInfo.some(col => col.name === 'last_stock_measured_at');
+
+    if (!hasLastStockMeasured) {
+      console.log('Führe Migration aus: Füge last_stock_measured_at Spalte hinzu');
+      // SQLite doesn't allow DEFAULT CURRENT_TIMESTAMP in ALTER TABLE, use a fixed timestamp
+      await db.exec(`
+        ALTER TABLE medications ADD COLUMN last_stock_measured_at DATETIME;
+      `);
+      // Set initial timestamp for existing medications
+      await db.exec(`
+        UPDATE medications SET last_stock_measured_at = CURRENT_TIMESTAMP WHERE last_stock_measured_at IS NULL;
+      `);
+      console.log('Migration erfolgreich abgeschlossen');
+    }
+  } catch (error) {
+    console.error('Fehler bei der Migration:', error);
+    // Don't fail initialization if migration fails
+  }
 
   console.log('Datenbank initialisiert');
   return db;

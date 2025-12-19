@@ -6,7 +6,8 @@ function calculateMedicationStats(medication) {
       daily_consumption: 0,
       days_remaining: Infinity,
       depletion_date: null,
-      warning_status: 'good'
+      warning_status: 'good',
+      last_stock_measured_at: medication.last_stock_measured_at
     };
   }
 
@@ -14,8 +15,12 @@ function calculateMedicationStats(medication) {
   const depletionDate = new Date();
   depletionDate.setDate(depletionDate.getDate() + Math.floor(daysRemaining));
 
+  // Warning Status: Negative Bestände sind immer kritisch
   let warningStatus = 'good';
-  if (daysRemaining < medication.warning_threshold_days) {
+  if (daysRemaining < 0) {
+    // Negativer Bestand = überfällig, immer kritisch
+    warningStatus = 'critical';
+  } else if (daysRemaining < medication.warning_threshold_days) {
     warningStatus = 'critical';
   } else if (daysRemaining < 14) {
     warningStatus = 'warning';
@@ -25,7 +30,8 @@ function calculateMedicationStats(medication) {
     daily_consumption: dailyConsumption,
     days_remaining: daysRemaining,
     depletion_date: depletionDate.toISOString(),
-    warning_status: warningStatus
+    warning_status: warningStatus,
+    last_stock_measured_at: medication.last_stock_measured_at
   };
 }
 

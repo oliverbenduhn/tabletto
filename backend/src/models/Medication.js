@@ -57,8 +57,9 @@ async function updateMedication(id, userId, data) {
 
   values.push(id, userId);
 
+  // Update timestamps: updated_at und last_stock_measured_at bei jeder Änderung
   await db.run(
-    `UPDATE medications SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`,
+    `UPDATE medications SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP, last_stock_measured_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`,
     values
   );
 
@@ -73,8 +74,9 @@ async function deleteMedication(id, userId) {
 
 async function updateStock(id, userId, newStock) {
   const db = getDatabase();
+  // Update stock und reset Zeitstempel für automatische Reduktion
   await db.run(
-    'UPDATE medications SET current_stock = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?',
+    'UPDATE medications SET current_stock = ?, updated_at = CURRENT_TIMESTAMP, last_stock_measured_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?',
     [newStock, id, userId]
   );
   return getById(id, userId);

@@ -14,6 +14,9 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - DB_PATH=/app/data/tabletto.db
+      - ENABLE_STOCK_SCHEDULER=${ENABLE_STOCK_SCHEDULER:-true}
+      - STOCK_SCHEDULER_CRON=${STOCK_SCHEDULER_CRON:-0 0 * * *}
+      - TZ=${TZ:-Europe/Berlin}
     env_file:
       - .env
     healthcheck:

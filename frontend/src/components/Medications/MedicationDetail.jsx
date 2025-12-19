@@ -5,12 +5,25 @@ function MedicationDetail({ medication, onAddPackage, onSetStock }) {
     return null;
   }
 
+  const daysRemaining = Number.isFinite(medication.days_remaining) ? medication.days_remaining : null;
+  const isOverdue = daysRemaining !== null && daysRemaining < 0;
+
+  // Format last measured timestamp
+  const lastMeasuredDate = medication.last_stock_measured_at
+    ? new Date(medication.last_stock_measured_at).toLocaleDateString('de-DE', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })
+    : '–';
+
   const info = [
     { label: 'Dosierung morgens', value: medication.dosage_morning },
     { label: 'Dosierung abends', value: medication.dosage_evening },
     { label: 'Tabletten pro Packung', value: medication.tablets_per_package },
     { label: 'Täglicher Verbrauch', value: medication.daily_consumption },
-    { label: 'Warngrenze (Tage)', value: medication.warning_threshold_days }
+    { label: 'Warngrenze (Tage)', value: medication.warning_threshold_days },
+    { label: 'Letzter Bestand gemessen', value: lastMeasuredDate }
   ];
 
   return (
@@ -20,7 +33,13 @@ function MedicationDetail({ medication, onAddPackage, onSetStock }) {
           <p className="text-xs uppercase tracking-wide text-gray-400">Medikament</p>
           <h1 className="text-3xl font-semibold text-gray-900">{medication.name}</h1>
           <p className="text-sm text-gray-500">
-            Aktueller Bestand: <span className="font-semibold text-gray-900">{medication.current_stock}</span>
+            Aktueller Bestand:{' '}
+            <span className={`font-semibold ${medication.current_stock < 0 ? 'text-rose-600' : 'text-gray-900'}`}>
+              {medication.current_stock}
+            </span>
+            {medication.current_stock < 0 && (
+              <span className="ml-1 text-xs text-rose-600">(Nachschub erforderlich)</span>
+            )}
           </p>
         </div>
         <div className="flex gap-3">
@@ -38,10 +57,16 @@ function MedicationDetail({ medication, onAddPackage, onSetStock }) {
             <p className="text-lg font-semibold text-gray-900">{field.value ?? '–'}</p>
           </div>
         ))}
-        <div className="rounded-2xl bg-blue-50 p-4">
-          <p className="text-xs uppercase tracking-wide text-blue-400">Verbleibende Tage</p>
-          <p className="text-3xl font-semibold text-blue-700">
-            {Number.isFinite(medication.days_remaining) ? medication.days_remaining.toFixed(1) : 'Unbegrenzt'}
+        <div className={`rounded-2xl p-4 ${isOverdue ? 'bg-rose-50' : 'bg-blue-50'}`}>
+          <p className={`text-xs uppercase tracking-wide ${isOverdue ? 'text-rose-400' : 'text-blue-400'}`}>
+            {isOverdue ? 'Überfällig' : 'Verbleibende Tage'}
+          </p>
+          <p className={`text-3xl font-semibold ${isOverdue ? 'text-rose-700' : 'text-blue-700'}`}>
+            {isOverdue
+              ? `${Math.abs(daysRemaining).toFixed(1)} Tage`
+              : daysRemaining !== null
+                ? daysRemaining.toFixed(1)
+                : 'Unbegrenzt'}
           </p>
         </div>
       </div>

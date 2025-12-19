@@ -1,6 +1,6 @@
 {
   "name": "tabletto-backend",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Backend für Tabletto - Medikamentenverwaltung",
   "main": "src/server.js",
   "type": "commonjs",
@@ -17,6 +17,7 @@
     "express": "^4.19.2",
     "express-rate-limit": "^7.1.5",
     "jsonwebtoken": "^9.0.2",
+    "node-cron": "^3.0.2",
     "sqlite": "^4.0.25",
     "sqlite3": "^5.1.7"
   },

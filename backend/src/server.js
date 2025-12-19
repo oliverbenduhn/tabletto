@@ -5,6 +5,7 @@ require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
 const { initDatabase } = require('./config/database');
 const { getDatabase } = require('./config/database');
+const { startStockScheduler, stopStockScheduler } = require('./services/stockScheduler');
 const authRoutes = require('./routes/auth');
 const medicationRoutes = require('./routes/medications');
 const userRoutes = require('./routes/user');
@@ -55,6 +56,11 @@ app.get('/health', async (req, res) => {
 
 initDatabase()
   .then(() => {
+    // Start Stock Scheduler
+    if (process.env.ENABLE_STOCK_SCHEDULER !== 'false') {
+      startStockScheduler();
+    }
+
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`Server läuft auf Port ${PORT}`);
     });
@@ -63,3 +69,16 @@ initDatabase()
     console.error('Fehler beim Initialisieren der Datenbank:', err);
     process.exit(1);
   });
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM empfangen - fahre Scheduler runter');
+  stopStockScheduler();
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT empfangen - fahre Scheduler runter');
+  stopStockScheduler();
+  process.exit(0);
+});
