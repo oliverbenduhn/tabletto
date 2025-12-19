@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Header from '../components/Layout/Header';
 import MedicationList from '../components/Medications/MedicationList';
 import MedicationForm from '../components/Medications/MedicationForm';
+import Modal from '../components/Common/Modal';
 import StatusDistribution from '../components/Dashboard/StatusDistribution';
 import api from '../services/api';
 
@@ -85,6 +86,7 @@ function DashboardPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toast, setToast] = useState(null);
   const [statsPulse, setStatsPulse] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const formRef = useRef(null);
 
   const fetchMedications = async () => {
@@ -249,16 +251,24 @@ function DashboardPage() {
           <StatusDistribution counts={statusCounts} />
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[3fr,2fr]">
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-gray-100 bg-white/90 p-4 shadow-sm">
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <h2 className="text-xl font-semibold text-gray-900">Meine Medikamente</h2>
-                  <p className="text-sm text-gray-500">Suche, filtere und verwalte deine Bestände.</p>
-                </div>
+        <section className="space-y-4">
+          <div className="rounded-2xl border border-gray-100 bg-white/90 p-4 shadow-sm">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Meine Medikamente</h2>
+                <p className="text-sm text-gray-500">Suche, filtere und verwalte deine Bestände.</p>
               </div>
-              <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center">
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                <svg viewBox="0 0 20 20" className="h-5 w-5" aria-hidden="true">
+                  <path fill="currentColor" d="M10 3v14M3 10h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+                Medikament hinzufügen
+              </button>
+            </div>
+            <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center">
                 <input
                   type="search"
                   placeholder="Suche nach Name..."
@@ -327,27 +337,34 @@ function DashboardPage() {
                 </div>
               </div>
             </div>
-            {loading ? (
-              <div className="rounded-2xl border border-gray-100 bg-white/70 p-6 text-center text-gray-500">Lade ...</div>
-            ) : (
-              <MedicationList
-                medications={sortedMedications}
-                emptyState={
-                  searchTerm
-                    ? 'Keine Medikamente entsprechen deiner Suche.'
-                    : 'Noch keine Medikamente vorhanden.'
-                }
-                viewMode={viewMode}
-              />
-            )}
-            {error && <p className="text-sm text-rose-600">{error}</p>}
-          </div>
-          <MedicationForm ref={formRef} onSubmit={handleCreateMedication} isSubmitting={isSubmitting} />
+          {loading ? (
+            <div className="rounded-2xl border border-gray-100 bg-white/70 p-6 text-center text-gray-500">Lade ...</div>
+          ) : (
+            <MedicationList
+              medications={sortedMedications}
+              emptyState={
+                searchTerm
+                  ? 'Keine Medikamente entsprechen deiner Suche.'
+                  : 'Noch keine Medikamente vorhanden.'
+              }
+              viewMode={viewMode}
+            />
+          )}
+          {error && <p className="text-sm text-rose-600">{error}</p>}
         </section>
+
+        <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Medikament hinzufügen">
+          <MedicationForm
+            ref={formRef}
+            onSubmit={handleCreateMedication}
+            isSubmitting={isSubmitting}
+            onSuccess={() => setIsModalOpen(false)}
+          />
+        </Modal>
       </main>
       <button
         type="button"
-        onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+        onClick={() => setIsModalOpen(true)}
         className="fixed bottom-6 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-2xl text-white shadow-xl transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-200"
         aria-label="Schnell ein neues Medikament hinzufügen"
       >

@@ -97,8 +97,10 @@ function MedicationCard({ medication, layout = 'grid' }) {
         </span>
       </div>
       <dl
-        className={`mt-4 grid grid-cols-2 gap-3 text-sm text-gray-600 ${
-          layout === 'list' ? 'sm:flex-1 md:grid-cols-5' : 'sm:grid-cols-3 lg:grid-cols-5'
+        className={`mt-4 grid gap-3 text-sm text-gray-600 ${
+          layout === 'list'
+            ? 'sm:flex-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5'
+            : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5'
         }`}
       >
         <div>
@@ -108,20 +110,20 @@ function MedicationCard({ medication, layout = 'grid' }) {
           </dd>
         </div>
         <div>
-          <dt className="text-xs uppercase text-gray-400">Täglicher Verbrauch</dt>
+          <dt className="text-xs uppercase text-gray-400">Verbrauch</dt>
           <dd className="text-base font-semibold text-gray-900">{medication.daily_consumption}</dd>
         </div>
         <div>
           <dt className="text-xs uppercase text-gray-400">Morgens</dt>
-          <dd>{medication.dosage_morning}</dd>
+          <dd className="text-base font-semibold text-gray-900">{medication.dosage_morning}</dd>
         </div>
         <div>
           <dt className="text-xs uppercase text-gray-400">Mittags</dt>
-          <dd>{medication.dosage_noon}</dd>
+          <dd className="text-base font-semibold text-gray-900">{medication.dosage_noon}</dd>
         </div>
         <div>
           <dt className="text-xs uppercase text-gray-400">Abends</dt>
-          <dd>{medication.dosage_evening}</dd>
+          <dd className="text-base font-semibold text-gray-900">{medication.dosage_evening}</dd>
         </div>
       </dl>
       <div className="mt-4 space-y-1">

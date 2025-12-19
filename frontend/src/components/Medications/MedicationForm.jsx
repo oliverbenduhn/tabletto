@@ -14,7 +14,7 @@ const initialState = {
 
 const dosagePresets = [0.5, 1, 2];
 
-const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitting }, ref) {
+const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitting, onSuccess }, ref) {
   const [form, setForm] = useState(initialState);
   const [error, setError] = useState('');
 
@@ -45,28 +45,27 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
     }
     const result = onSubmit(form);
     if (result && typeof result.then === 'function') {
-      result.then(() => setForm(initialState));
+      result.then(() => {
+        setForm(initialState);
+        if (onSuccess) onSuccess();
+      });
     } else {
       setForm(initialState);
+      if (onSuccess) onSuccess();
     }
   };
 
   return (
     <form
       ref={ref}
-      className="relative grid gap-4 rounded-2xl border border-gray-100 bg-white/90 p-5 shadow-sm"
+      className="relative grid gap-4"
       onSubmit={handleSubmit}
     >
       {isSubmitting && (
-        <div className="pointer-events-none absolute inset-x-5 top-5 flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2 text-xs font-medium text-blue-600">
+        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2 text-xs font-medium text-blue-600">
           <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" /> Speichere Eintrag ...
         </div>
       )}
-      <div>
-        <p className="text-xs uppercase tracking-wide text-gray-400">Neue Eintragung</p>
-        <h2 className="text-xl font-semibold text-gray-900">Medikament hinzufügen</h2>
-        <p className="text-sm text-gray-500">Pflege Bestand, Dosierungen und Warngrenzen an einem Ort.</p>
-      </div>
       <Input
         label="Name"
         name="name"
