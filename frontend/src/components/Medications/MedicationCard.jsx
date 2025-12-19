@@ -104,25 +104,25 @@ function MedicationCard({ medication, layout = 'grid' }) {
         }`}
       >
         <div>
-          <dt className="text-xs uppercase text-gray-400">Bestand</dt>
+          <dt className="truncate text-[10px] uppercase tracking-tight text-gray-400">Bestand</dt>
           <dd className={`text-base font-semibold ${medication.current_stock < 0 ? 'text-rose-600' : 'text-gray-900'}`}>
             {medication.current_stock}
           </dd>
         </div>
         <div>
-          <dt className="text-xs uppercase text-gray-400">Verbrauch</dt>
+          <dt className="truncate text-[10px] uppercase tracking-tight text-gray-400">Verb./Tag</dt>
           <dd className="text-base font-semibold text-gray-900">{medication.daily_consumption}</dd>
         </div>
         <div>
-          <dt className="text-xs uppercase text-gray-400">Morgens</dt>
+          <dt className="truncate text-[10px] uppercase tracking-tight text-gray-400">Mo.</dt>
           <dd className="text-base font-semibold text-gray-900">{medication.dosage_morning}</dd>
         </div>
         <div>
-          <dt className="text-xs uppercase text-gray-400">Mittags</dt>
+          <dt className="truncate text-[10px] uppercase tracking-tight text-gray-400">Mi.</dt>
           <dd className="text-base font-semibold text-gray-900">{medication.dosage_noon}</dd>
         </div>
         <div>
-          <dt className="text-xs uppercase text-gray-400">Abends</dt>
+          <dt className="truncate text-[10px] uppercase tracking-tight text-gray-400">Ab.</dt>
           <dd className="text-base font-semibold text-gray-900">{medication.dosage_evening}</dd>
         </div>
       </dl>
