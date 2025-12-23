@@ -17,6 +17,7 @@ function enrichMedication(medication) {
 function removePhotoFile(photoPath) {
   if (!photoPath) return;
   const fullPath = resolveUploadPath(photoPath);
+  if (!fullPath) return;
   fs.unlink(fullPath, err => {
     if (err && err.code !== 'ENOENT') {
       console.error('Fehler beim Löschen des Fotos:', err);
