@@ -82,11 +82,13 @@ function MedicationDetail({ medication, onAddPackage, onSetStock, onPhotoUpload,
             </div>
           </div>
           {medication.photo_url && (
-            <img
-              src={medication.photo_url}
-              alt={`Foto von ${medication.name}`}
-              className="mt-4 h-48 w-full rounded-2xl bg-white object-contain ring-1 ring-blue-100"
-            />
+            <div className="mt-4 flex max-h-80 w-full items-center justify-center overflow-hidden rounded-2xl bg-slate-50 ring-1 ring-blue-100">
+              <img
+                src={medication.photo_url}
+                alt={`Foto von ${medication.name}`}
+                className="max-h-80 w-auto max-w-full object-contain"
+              />
+            </div>
           )}
         </div>
         {info.map(field => (
