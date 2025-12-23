@@ -24,11 +24,18 @@ function calculateConsumption(medication) {
   const millisecondsDiff = now - lastMeasured;
   const daysElapsed = Math.floor(millisecondsDiff / (1000 * 60 * 60 * 24));
 
+  // Sicherheitscheck: Maximal 90 Tage zurückrechnen (verhindert absurde Werte bei Datenfehlern)
+  const safeDaysElapsed = Math.min(daysElapsed, 90);
+
+  if (daysElapsed > 90) {
+    console.warn(`Stock-Scheduler: ${medication.name} (ID: ${medication.id}) - ${daysElapsed} Tage seit letzter Messung, limitiere auf 90 Tage`);
+  }
+
   // Täglicher Verbrauch
   const dailyConsumption = medication.dosage_morning + medication.dosage_noon + medication.dosage_evening;
 
   // Gesamtverbrauch
-  return daysElapsed * dailyConsumption;
+  return safeDaysElapsed * dailyConsumption;
 }
 
 /**
@@ -53,8 +60,22 @@ async function deductStockDaily() {
 
     for (const med of medications) {
       try {
+        // Überspringe wenn last_stock_measured_at NULL oder ungültig ist
+        if (!med.last_stock_measured_at) {
+          console.log(`Stock-Scheduler: Überspringe ${med.name} (ID: ${med.id}) - kein last_stock_measured_at`);
+          skippedCount++;
+          continue;
+        }
+
         const lastMeasured = new Date(med.last_stock_measured_at);
         const now = new Date();
+
+        // Validierung: Überspringe wenn Datum ungültig oder in der Zukunft
+        if (isNaN(lastMeasured.getTime()) || lastMeasured > now) {
+          console.log(`Stock-Scheduler: Überspringe ${med.name} (ID: ${med.id}) - ungültiges Datum: ${med.last_stock_measured_at}`);
+          skippedCount++;
+          continue;
+        }
 
         // Überspringe wenn bereits heute aktualisiert (verhindert Doppel-Reduktion)
         if (isSameDay(lastMeasured, now)) {
@@ -115,7 +136,7 @@ async function deductStockDaily() {
 function startStockScheduler() {
   // Lese Konfiguration aus Umgebungsvariablen
   const enabled = process.env.ENABLE_STOCK_SCHEDULER !== 'false';
-  const cronExpression = process.env.STOCK_SCHEDULER_CRON || '0 0 * * *';
+  const cronExpression = process.env.STOCK_SCHEDULER_CRON || '0 2 * * *';
 
   if (!enabled) {
     console.log('Stock-Scheduler: Deaktiviert (ENABLE_STOCK_SCHEDULER=false)');
