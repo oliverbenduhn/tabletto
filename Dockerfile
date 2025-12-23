@@ -43,7 +43,7 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV DB_PATH=/app/data/tabletto.db
 
-LABEL name="Tabletto" description="Tabletto - Medikamentenverwaltung" version="1.1.3"
+LABEL name="Tabletto" description="Tabletto - Medikamentenverwaltung" version="1.2.0"
 
 EXPOSE 3000
 
