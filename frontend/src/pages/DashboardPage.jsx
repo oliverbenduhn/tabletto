@@ -117,7 +117,12 @@ function DashboardPage() {
     setIsSubmitting(true);
     setError('');
     try {
-      await api.createMedication(form);
+      const { photoFile, ...payload } = form;
+      if (photoFile) {
+        await api.createMedicationWithPhoto(payload, photoFile);
+      } else {
+        await api.createMedication(payload);
+      }
       setToast({ type: 'success', message: `${form.name || 'Medikament'} gespeichert.` });
       await fetchMedications();
     } catch (err) {

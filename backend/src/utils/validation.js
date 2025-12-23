@@ -20,6 +20,10 @@ function validateMedication(data) {
     errors.push('Morgens-Dosierung muss zwischen 0 und 10 liegen');
   }
 
+  if (data.dosage_noon < 0 || data.dosage_noon > 10) {
+    errors.push('Mittags-Dosierung muss zwischen 0 und 10 liegen');
+  }
+
   if (data.dosage_evening < 0 || data.dosage_evening > 10) {
     errors.push('Abends-Dosierung muss zwischen 0 und 10 liegen');
   }

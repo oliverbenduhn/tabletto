@@ -4,9 +4,12 @@ class ApiService {
   async request(endpoint, options = {}) {
     const token = localStorage.getItem('token');
     const headers = {
-      'Content-Type': 'application/json',
       ...(options.headers || {})
     };
+
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     if (token) {
       headers.Authorization = `Bearer ${token}`;
@@ -65,6 +68,22 @@ class ApiService {
     });
   }
 
+  async createMedicationWithPhoto(data, photoFile) {
+    const formData = new FormData();
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        formData.append(key, value);
+      }
+    });
+    if (photoFile) {
+      formData.append('photo', photoFile);
+    }
+    return this.request('/medications', {
+      method: 'POST',
+      body: formData
+    });
+  }
+
   async updateMedication(id, data) {
     return this.request(`/medications/${id}`, {
       method: 'PUT',
@@ -87,6 +106,21 @@ class ApiService {
 
   async getMedicationHistory(id, limit = 50) {
     return this.request(`/medications/${id}/history?limit=${limit}`);
+  }
+
+  async uploadMedicationPhoto(id, photoFile) {
+    const formData = new FormData();
+    formData.append('photo', photoFile);
+    return this.request(`/medications/${id}/photo`, {
+      method: 'POST',
+      body: formData
+    });
+  }
+
+  async deleteMedicationPhoto(id) {
+    return this.request(`/medications/${id}/photo`, {
+      method: 'DELETE'
+    });
   }
 
   async getProfile() {

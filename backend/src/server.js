@@ -6,6 +6,7 @@ require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 const { initDatabase } = require('./config/database');
 const { getDatabase } = require('./config/database');
 const { startStockScheduler, stopStockScheduler } = require('./services/stockScheduler');
+const { ensureUploadDirs, uploadRoot } = require('./utils/uploads');
 const authRoutes = require('./routes/auth');
 const medicationRoutes = require('./routes/medications');
 const userRoutes = require('./routes/user');
@@ -18,6 +19,8 @@ const PORT = process.env.PORT || 3000;
 const allowedOrigin = process.env.FRONTEND_ORIGIN || '*';
 app.use(cors({ origin: allowedOrigin }));
 app.use(express.json());
+ensureUploadDirs();
+app.use('/uploads', express.static(uploadRoot));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/medications', medicationRoutes);

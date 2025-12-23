@@ -35,6 +35,7 @@ async function initDatabase() {
       tablets_per_package INTEGER NOT NULL,
       current_stock REAL NOT NULL DEFAULT 0,
       warning_threshold_days INTEGER NOT NULL DEFAULT 7,
+      photo_path TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       last_stock_measured_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -95,6 +96,23 @@ async function initDatabase() {
     }
   } catch (error) {
     console.error('Fehler bei der Migration (dosage_noon):', error);
+    // Don't fail initialization if migration fails
+  }
+
+  // Migration: Add photo_path column if it doesn't exist
+  try {
+    const tableInfo = await db.all("PRAGMA table_info(medications)");
+    const hasPhotoPath = tableInfo.some(col => col.name === 'photo_path');
+
+    if (!hasPhotoPath) {
+      console.log('Führe Migration aus: Füge photo_path Spalte hinzu');
+      await db.exec(`
+        ALTER TABLE medications ADD COLUMN photo_path TEXT;
+      `);
+      console.log('Migration photo_path erfolgreich abgeschlossen');
+    }
+  } catch (error) {
+    console.error('Fehler bei der Migration (photo_path):', error);
     // Don't fail initialization if migration fails
   }
 

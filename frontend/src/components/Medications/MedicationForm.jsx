@@ -1,4 +1,4 @@
-import { forwardRef, useState } from 'react';
+import { forwardRef, useEffect, useState } from 'react';
 import Input from '../Common/Input';
 import Button from '../Common/Button';
 
@@ -16,6 +16,9 @@ const dosagePresets = [0.5, 1, 2];
 
 const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitting, onSuccess }, ref) {
   const [form, setForm] = useState(initialState);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState('');
+  const [photoInputKey, setPhotoInputKey] = useState(0);
   const [error, setError] = useState('');
 
   const handleChange = e => {
@@ -43,17 +46,40 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
       setError('Name ist erforderlich');
       return;
     }
-    const result = onSubmit(form);
+    const result = onSubmit({ ...form, photoFile });
     if (result && typeof result.then === 'function') {
       result.then(() => {
         setForm(initialState);
+        setPhotoFile(null);
+        setPhotoPreview('');
+        setPhotoInputKey(prev => prev + 1);
         if (onSuccess) onSuccess();
       });
     } else {
       setForm(initialState);
+      setPhotoFile(null);
+      setPhotoPreview('');
+      setPhotoInputKey(prev => prev + 1);
       if (onSuccess) onSuccess();
     }
   };
+
+  const handlePhotoChange = event => {
+    const file = event.target.files?.[0];
+    setPhotoFile(file || null);
+    if (photoPreview) {
+      URL.revokeObjectURL(photoPreview);
+    }
+    setPhotoPreview(file ? URL.createObjectURL(file) : '');
+  };
+
+  useEffect(() => {
+    return () => {
+      if (photoPreview) {
+        URL.revokeObjectURL(photoPreview);
+      }
+    };
+  }, [photoPreview]);
 
   return (
     <form
@@ -146,6 +172,26 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
         onChange={handleChange}
         helper="Wir benachrichtigen dich, wenn der Bestand unter diese Grenze fällt."
       />
+      <div className="rounded-2xl border border-dashed border-blue-100 bg-blue-50/40 p-4">
+        <p className="text-sm font-medium text-gray-800">Foto</p>
+        <p className="text-xs text-gray-500">Optional: Bild der Packung hochladen (max. 5 MB).</p>
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <input
+            key={photoInputKey}
+            type="file"
+            accept="image/*"
+            onChange={handlePhotoChange}
+            className="text-sm text-gray-600 file:mr-4 file:rounded-full file:border-0 file:bg-blue-100 file:px-4 file:py-2 file:text-xs file:font-semibold file:text-blue-700 hover:file:bg-blue-200"
+          />
+          {photoPreview && (
+            <img
+              src={photoPreview}
+              alt="Vorschau"
+              className="h-20 w-20 rounded-xl object-cover ring-1 ring-blue-100"
+            />
+          )}
+        </div>
+      </div>
       {error && <p className="rounded-md bg-rose-50 p-3 text-sm text-rose-600">{error}</p>}
       <Button type="submit" disabled={isSubmitting} className="justify-center">
         {isSubmitting ? (

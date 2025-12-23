@@ -1,6 +1,6 @@
 import Button from '../Common/Button';
 
-function MedicationDetail({ medication, onAddPackage, onSetStock }) {
+function MedicationDetail({ medication, onAddPackage, onSetStock, onPhotoUpload, onPhotoDelete, photoUploading }) {
   if (!medication) {
     return null;
   }
@@ -52,6 +52,44 @@ function MedicationDetail({ medication, onAddPackage, onSetStock }) {
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <div className="rounded-2xl border border-dashed border-blue-100 bg-blue-50/40 p-4 sm:col-span-2">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-gray-400">Foto</p>
+              <p className="text-sm text-gray-600">
+                {medication.photo_url ? 'Aktuelles Foto der Packung.' : 'Noch kein Foto hinterlegt.'}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+              <label className="cursor-pointer rounded-full border border-blue-100 px-3 py-1 text-blue-600 transition hover:bg-blue-50">
+                {photoUploading ? 'Lade hoch ...' : 'Foto hochladen'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={onPhotoUpload}
+                  disabled={photoUploading}
+                  className="hidden"
+                />
+              </label>
+              {medication.photo_url && (
+                <button
+                  type="button"
+                  onClick={onPhotoDelete}
+                  className="rounded-full border border-rose-100 px-3 py-1 text-rose-600 transition hover:bg-rose-50"
+                >
+                  Foto löschen
+                </button>
+              )}
+            </div>
+          </div>
+          {medication.photo_url && (
+            <img
+              src={medication.photo_url}
+              alt={`Foto von ${medication.name}`}
+              className="mt-4 h-48 w-full rounded-2xl object-cover ring-1 ring-blue-100"
+            />
+          )}
+        </div>
         {info.map(field => (
           <div key={field.label} className="rounded-2xl bg-slate-50 p-4">
             <p className="text-xs uppercase tracking-wide text-gray-400">{field.label}</p>

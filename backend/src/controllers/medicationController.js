@@ -2,10 +2,26 @@ const Medication = require('../models/Medication');
 const History = require('../models/History');
 const { calculateMedicationStats } = require('../utils/calculations');
 const { validateMedication } = require('../utils/validation');
+const fs = require('fs');
+const {
+  buildUploadUrl,
+  resolveUploadPath,
+  toRelativeMedicationPath
+} = require('../utils/uploads');
 
 function enrichMedication(medication) {
   const stats = calculateMedicationStats(medication);
-  return { ...medication, ...stats };
+  return { ...medication, ...stats, photo_url: buildUploadUrl(medication.photo_path) };
+}
+
+function removePhotoFile(photoPath) {
+  if (!photoPath) return;
+  const fullPath = resolveUploadPath(photoPath);
+  fs.unlink(fullPath, err => {
+    if (err && err.code !== 'ENOENT') {
+      console.error('Fehler beim Löschen des Fotos:', err);
+    }
+  });
 }
 
 async function getMedications(req, res) {
@@ -23,17 +39,21 @@ async function getMedication(req, res) {
 }
 
 async function createMedication(req, res) {
+  const photoPath = req.file ? toRelativeMedicationPath(req.file.filename) : null;
   const payload = {
     name: req.body.name,
     dosage_morning: Number(req.body.dosage_morning || 0),
+    dosage_noon: Number(req.body.dosage_noon || 0),
     dosage_evening: Number(req.body.dosage_evening || 0),
     tablets_per_package: Number(req.body.tablets_per_package),
     current_stock: Number(req.body.current_stock || 0),
-    warning_threshold_days: Number(req.body.warning_threshold_days || 7)
+    warning_threshold_days: Number(req.body.warning_threshold_days || 7),
+    photo_path: photoPath
   };
 
   const errors = validateMedication(payload);
   if (errors.length) {
+    removePhotoFile(photoPath);
     return res.status(400).json({ error: errors.join(', ') });
   }
 
@@ -48,7 +68,7 @@ async function updateMedication(req, res) {
   }
 
   const payload = { ...req.body };
-  ['dosage_morning', 'dosage_evening', 'tablets_per_package', 'current_stock', 'warning_threshold_days'].forEach(field => {
+  ['dosage_morning', 'dosage_noon', 'dosage_evening', 'tablets_per_package', 'current_stock', 'warning_threshold_days'].forEach(field => {
     if (payload[field] !== undefined) {
       payload[field] = Number(payload[field]);
     }
@@ -63,6 +83,11 @@ async function updateMedication(req, res) {
 }
 
 async function deleteMedication(req, res) {
+  const existing = await Medication.getById(req.params.id, req.user.id);
+  if (!existing) {
+    return res.status(404).json({ error: 'Medikament nicht gefunden' });
+  }
+  removePhotoFile(existing.photo_path);
   const deleted = await Medication.deleteMedication(req.params.id, req.user.id);
   if (!deleted) {
     return res.status(404).json({ error: 'Medikament nicht gefunden' });
@@ -116,6 +141,37 @@ async function getHistory(req, res) {
   res.json({ history });
 }
 
+async function uploadPhoto(req, res) {
+  const medication = await Medication.getById(req.params.id, req.user.id);
+  if (!medication) {
+    return res.status(404).json({ error: 'Medikament nicht gefunden' });
+  }
+
+  if (!req.file) {
+    return res.status(400).json({ error: 'Kein Foto hochgeladen' });
+  }
+
+  const photoPath = toRelativeMedicationPath(req.file.filename);
+  const updated = await Medication.updatePhoto(req.params.id, req.user.id, photoPath);
+  removePhotoFile(medication.photo_path);
+  res.json({ medication: enrichMedication(updated) });
+}
+
+async function deletePhoto(req, res) {
+  const medication = await Medication.getById(req.params.id, req.user.id);
+  if (!medication) {
+    return res.status(404).json({ error: 'Medikament nicht gefunden' });
+  }
+
+  if (!medication.photo_path) {
+    return res.status(400).json({ error: 'Kein Foto vorhanden' });
+  }
+
+  const updated = await Medication.updatePhoto(req.params.id, req.user.id, null);
+  removePhotoFile(medication.photo_path);
+  res.json({ medication: enrichMedication(updated) });
+}
+
 module.exports = {
   getMedications,
   getMedication,
@@ -123,5 +179,7 @@ module.exports = {
   updateMedication,
   deleteMedication,
   updateStock,
-  getHistory
+  getHistory,
+  uploadPhoto,
+  deletePhoto
 };

@@ -15,8 +15,8 @@ async function createMedication(userId, data) {
   const result = await db.run(
     `INSERT INTO medications (
       user_id, name, dosage_morning, dosage_noon, dosage_evening, tablets_per_package,
-      current_stock, warning_threshold_days
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      current_stock, warning_threshold_days, photo_path
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       userId,
       data.name,
@@ -25,7 +25,8 @@ async function createMedication(userId, data) {
       data.dosage_evening,
       data.tablets_per_package,
       data.current_stock,
-      data.warning_threshold_days
+      data.warning_threshold_days,
+      data.photo_path || null
     ]
   );
   return getById(result.lastID, userId);
@@ -84,4 +85,14 @@ async function updateStock(id, userId, newStock) {
   return getById(id, userId);
 }
 
-module.exports = { getAllByUser, getById, createMedication, updateMedication, deleteMedication, updateStock };
+async function updatePhoto(id, userId, photoPath) {
+  const db = getDatabase();
+  await db.run('UPDATE medications SET photo_path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?', [
+    photoPath,
+    id,
+    userId
+  ]);
+  return getById(id, userId);
+}
+
+module.exports = { getAllByUser, getById, createMedication, updateMedication, deleteMedication, updateStock, updatePhoto };

@@ -84,10 +84,11 @@ async function importData(req, res) {
           tablets_per_package,
           current_stock,
           warning_threshold_days,
+          photo_path,
           created_at,
           updated_at,
           last_stock_measured_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           userId,
           med.name,
@@ -97,6 +98,7 @@ async function importData(req, res) {
           med.tablets_per_package ?? 0,
           med.current_stock ?? 0,
           med.warning_threshold_days ?? 7,
+          med.photo_path ?? null,
           med.created_at || fallbackTimestamp,
           med.updated_at || fallbackTimestamp,
           med.last_stock_measured_at || med.updated_at || fallbackTimestamp

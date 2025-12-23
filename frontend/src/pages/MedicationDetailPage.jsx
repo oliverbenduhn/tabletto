@@ -12,6 +12,7 @@ function MedicationDetailPage() {
   const [medication, setMedication] = useState(null);
   const [history, setHistory] = useState([]);
   const [error, setError] = useState('');
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   const fetchMedication = async () => {
     setError('');
@@ -64,6 +65,36 @@ function MedicationDetailPage() {
     }
   };
 
+  const handlePhotoUpload = async event => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setPhotoUploading(true);
+    setError('');
+    try {
+      await api.uploadMedicationPhoto(id, file);
+      await fetchMedication();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setPhotoUploading(false);
+      event.target.value = '';
+    }
+  };
+
+  const handlePhotoDelete = async () => {
+    if (!confirm('Foto löschen?')) return;
+    setPhotoUploading(true);
+    setError('');
+    try {
+      await api.deleteMedicationPhoto(id);
+      await fetchMedication();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-transparent">
       <Header />
@@ -77,7 +108,14 @@ function MedicationDetailPage() {
           </Button>
         </div>
         {error && <p className="rounded-md bg-rose-50 p-3 text-sm text-rose-600">{error}</p>}
-        <MedicationDetail medication={medication} onAddPackage={handleAddPackage} onSetStock={handleSetStock} />
+        <MedicationDetail
+          medication={medication}
+          onAddPackage={handleAddPackage}
+          onSetStock={handleSetStock}
+          onPhotoUpload={handlePhotoUpload}
+          onPhotoDelete={handlePhotoDelete}
+          photoUploading={photoUploading}
+        />
         <div className="rounded-3xl border border-gray-100 bg-white/90 p-6 shadow-sm">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
