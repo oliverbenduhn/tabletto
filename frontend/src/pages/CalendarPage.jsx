@@ -13,9 +13,17 @@ function CalendarPage() {
   const [medications, setMedications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     loadMedications();
+  }, []);
+
+  useEffect(() => {
+    const updateIsMobile = () => setIsMobile(window.innerWidth < 640);
+    updateIsMobile();
+    window.addEventListener('resize', updateIsMobile);
+    return () => window.removeEventListener('resize', updateIsMobile);
   }, []);
 
   const loadMedications = async () => {
@@ -133,14 +141,14 @@ function CalendarPage() {
           </div>
         )}
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
           <FullCalendar
             plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-            initialView="dayGridMonth"
+            initialView={isMobile ? 'listMonth' : 'dayGridMonth'}
             headerToolbar={{
-              left: 'prev,next today',
+              left: isMobile ? 'prev,next' : 'prev,next today',
               center: 'title',
-              right: 'dayGridMonth,timeGridWeek,listMonth'
+              right: isMobile ? 'listMonth' : 'dayGridMonth,timeGridWeek,listMonth'
             }}
             locale="de"
             buttonText={{
@@ -154,9 +162,9 @@ function CalendarPage() {
             eventOrder="daysRemaining"
             height="auto"
             firstDay={1}
-            weekNumbers={true}
+            weekNumbers={!isMobile}
             weekText="KW"
-            dayHeaderFormat={{ weekday: 'short' }}
+            dayHeaderFormat={{ weekday: isMobile ? 'narrow' : 'short' }}
             dayCellDidMount={(arg) => {
               const dateStr = arg.date.toISOString().split('T')[0];
               // Finde Medikamente, die an diesem Tag leer gehen
@@ -167,8 +175,13 @@ function CalendarPage() {
                 depletingToday.forEach(event => {
                   const indicator = document.createElement('div');
                   indicator.className = 'fc-daygrid-day-top';
-                  indicator.style.cssText = 'background: #dc2626; color: white; padding: 2px 4px; border-radius: 4px; font-size: 10px; font-weight: bold; text-align: center; margin: 2px;';
-                  indicator.textContent = `⚠️ ${event.title} leer`;
+                  if (isMobile) {
+                    indicator.style.cssText = 'background: #dc2626; color: white; padding: 0 6px; border-radius: 999px; font-size: 10px; font-weight: 700; text-align: center; margin: 2px; display: inline-block;';
+                    indicator.textContent = '!';
+                  } else {
+                    indicator.style.cssText = 'background: #dc2626; color: white; padding: 2px 4px; border-radius: 4px; font-size: 10px; font-weight: bold; text-align: center; margin: 2px;';
+                    indicator.textContent = `⚠️ ${event.title} leer`;
+                  }
                   arg.el.querySelector('.fc-daygrid-day-frame')?.prepend(indicator);
                 });
               }
@@ -177,19 +190,19 @@ function CalendarPage() {
               const { daysRemaining } = arg.event.extendedProps;
 
               return (
-                <div className="fc-event-main-frame" style={{ padding: '2px 4px' }}>
+                <div className="fc-event-main-frame" style={{ padding: isMobile ? '1px 3px' : '2px 4px' }}>
                   <div className="fc-event-title-container">
-                    <div className="fc-event-title fc-sticky" style={{ fontWeight: 600, fontSize: '12px' }}>
+                    <div className="fc-event-title fc-sticky" style={{ fontWeight: 600, fontSize: isMobile ? '11px' : '12px' }}>
                       {arg.event.title}
                     </div>
                   </div>
-                  <div style={{ fontSize: '10px', opacity: 0.9, marginTop: '2px' }}>
+                  <div style={{ fontSize: isMobile ? '9px' : '10px', opacity: 0.9, marginTop: isMobile ? '1px' : '2px' }}>
                     {daysRemaining <= 0 ? '⛔ LEER' : `${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''}`}
                   </div>
                 </div>
               );
             }}
-            dayMaxEvents={4}
+            dayMaxEvents={isMobile ? 2 : 4}
             moreLinkText="weitere"
           />
         </div>
