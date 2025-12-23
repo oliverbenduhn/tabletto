@@ -85,7 +85,7 @@ function MedicationDetail({ medication, onAddPackage, onSetStock, onPhotoUpload,
             <img
               src={medication.photo_url}
               alt={`Foto von ${medication.name}`}
-              className="mt-4 h-48 w-full rounded-2xl object-cover ring-1 ring-blue-100"
+              className="mt-4 h-48 w-full rounded-2xl bg-white object-contain ring-1 ring-blue-100"
             />
           )}
         </div>

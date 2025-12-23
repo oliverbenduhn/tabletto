@@ -174,7 +174,7 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
             <img
               src={photoPreview}
               alt="Vorschau"
-              className="h-20 w-20 rounded-xl object-cover ring-1 ring-blue-100"
+              className="h-20 w-20 rounded-xl bg-white object-contain ring-1 ring-blue-100"
             />
           )}
         </div>
