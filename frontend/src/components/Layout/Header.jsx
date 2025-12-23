@@ -28,11 +28,11 @@ function Header() {
   return (
     <>
       <header className="sticky top-0 z-10 border-b border-gray-100 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4">
-          <div className="flex items-center gap-6">
-            <Link to="/dashboard" className="flex items-baseline gap-2 text-xl font-semibold text-blue-600">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:gap-4 sm:py-4">
+          <div className="flex items-center gap-4 sm:gap-6">
+            <Link to="/dashboard" className="flex items-baseline gap-2 text-lg font-semibold text-blue-600 sm:text-xl">
               <span>Tabletto</span>
-              <span className="text-xs font-normal text-gray-400">v{packageJson.version}</span>
+              <span className="hidden text-xs font-normal text-gray-400 sm:inline">v{packageJson.version}</span>
             </Link>
             <nav className="hidden gap-2 sm:flex">
               <Link

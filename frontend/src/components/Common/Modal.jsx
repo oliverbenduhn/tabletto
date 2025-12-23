@@ -41,8 +41,8 @@ function Modal({ isOpen, onClose, title, children }) {
         aria-modal="true"
         aria-labelledby="modal-title"
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white/95 px-6 py-4 backdrop-blur">
-          <h2 id="modal-title" className="text-xl font-semibold text-gray-900">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white/95 px-4 py-3 backdrop-blur sm:px-6 sm:py-4">
+          <h2 id="modal-title" className="text-lg font-semibold text-gray-900 sm:text-xl">
             {title}
           </h2>
           <button
@@ -61,7 +61,7 @@ function Modal({ isOpen, onClose, title, children }) {
             </svg>
           </button>
         </div>
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {children}
         </div>
       </div>

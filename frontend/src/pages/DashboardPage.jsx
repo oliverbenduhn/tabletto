@@ -200,10 +200,10 @@ function DashboardPage() {
   return (
     <div className="min-h-screen bg-transparent">
       <Header />
-      <main className="mx-auto max-w-6xl space-y-8 px-4 py-8">
+      <main className="mx-auto max-w-6xl space-y-8 px-4 py-6 sm:py-8">
         {toast && (
           <div
-            className={`fixed right-4 top-6 z-50 flex items-center gap-2 rounded-xl border px-4 py-3 text-sm shadow-lg ${
+            className={`fixed left-4 right-4 top-4 z-50 flex items-center gap-2 rounded-xl border px-4 py-3 text-sm shadow-lg sm:left-auto sm:right-4 sm:top-6 sm:max-w-sm ${
               toast.type === 'error'
                 ? 'border-rose-200 bg-rose-50 text-rose-700'
                 : 'border-emerald-200 bg-emerald-50 text-emerald-700'
@@ -213,7 +213,7 @@ function DashboardPage() {
             {toast.message}
           </div>
         )}
-        <section className="rounded-3xl border border-blue-100 bg-white/80 p-6 shadow-sm">
+        <section className="rounded-3xl border border-blue-100 bg-white/80 p-4 shadow-sm sm:p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-sm uppercase tracking-[0.2em] text-blue-400">Übersicht</p>
@@ -224,7 +224,7 @@ function DashboardPage() {
             </div>
             <div className="flex flex-wrap gap-3 text-sm text-gray-600">
               <button
-                className="rounded-full border border-gray-200 px-3 py-1 hover:border-blue-200 hover:text-blue-600"
+                className="w-full rounded-full border border-gray-200 px-3 py-1 hover:border-blue-200 hover:text-blue-600 sm:w-auto"
                 onClick={fetchMedications}
               >
                 Aktualisieren
@@ -242,7 +242,7 @@ function DashboardPage() {
                   {stat.label}
                 </div>
                 <div
-                  className={`mt-3 flex items-center justify-center gap-2 text-3xl font-semibold text-gray-900 transition duration-300 ${
+                  className={`mt-3 flex items-center justify-center gap-2 text-2xl font-semibold text-gray-900 transition duration-300 sm:text-3xl ${
                     statsPulse ? 'scale-[1.04] text-blue-900' : ''
                   }`}
                 >
@@ -257,7 +257,7 @@ function DashboardPage() {
         </section>
 
         <section className="space-y-4">
-          <div className="rounded-2xl border border-gray-100 bg-white/90 p-4 shadow-sm">
+          <div className="rounded-2xl border border-gray-100 bg-white/90 p-4 shadow-sm sm:p-5">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">Meine Medikamente</h2>
@@ -265,7 +265,7 @@ function DashboardPage() {
               </div>
               <button
                 onClick={() => setIsModalOpen(true)}
-                className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:w-auto"
               >
                 <svg viewBox="0 0 20 20" className="h-5 w-5" aria-hidden="true">
                   <path fill="currentColor" d="M10 3v14M3 10h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -310,7 +310,7 @@ function DashboardPage() {
                     <option value="stock">Bestand</option>
                   </select>
                 </label>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => setViewMode('grid')}
@@ -370,7 +370,7 @@ function DashboardPage() {
       <button
         type="button"
         onClick={() => setIsModalOpen(true)}
-        className="fixed bottom-6 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-2xl text-white shadow-xl transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-200"
+        className="fixed bottom-6 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-2xl text-white shadow-xl transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-200 sm:bottom-8 sm:right-8"
         aria-label="Schnell ein neues Medikament hinzufügen"
       >
         +

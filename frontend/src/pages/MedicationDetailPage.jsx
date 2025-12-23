@@ -107,10 +107,10 @@ function MedicationDetailPage() {
       <Header />
       <main className="mx-auto max-w-5xl space-y-6 px-4 py-8">
         <div className="flex flex-wrap items-center gap-3">
-          <Button variant="ghost" onClick={() => navigate(-1)}>
+          <Button variant="ghost" onClick={() => navigate(-1)} className="w-full sm:w-auto">
             ← Zurück
           </Button>
-          <Button variant="secondary" onClick={handleDelete}>
+          <Button variant="secondary" onClick={handleDelete} className="w-full sm:w-auto">
             Medikament löschen
           </Button>
         </div>
@@ -123,13 +123,13 @@ function MedicationDetailPage() {
           onPhotoDelete={handlePhotoDelete}
           photoUploading={photoUploading}
         />
-        <div className="rounded-3xl border border-gray-100 bg-white/90 p-6 shadow-sm">
+        <div className="rounded-3xl border border-gray-100 bg-white/90 p-4 shadow-sm sm:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs uppercase tracking-wide text-gray-400">Historie</p>
               <h2 className="text-xl font-semibold text-gray-900">Bestandsbewegungen</h2>
             </div>
-            <Button variant="secondary" onClick={fetchMedication}>
+            <Button variant="secondary" onClick={fetchMedication} className="w-full sm:w-auto">
               Verlauf aktualisieren
             </Button>
           </div>

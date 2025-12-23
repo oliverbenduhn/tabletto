@@ -31,7 +31,7 @@ function MedicationDetail({ medication, onAddPackage, onSetStock, onPhotoUpload,
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <p className="text-xs uppercase tracking-wide text-gray-400">Medikament</p>
-          <h1 className="text-3xl font-semibold text-gray-900">{medication.name}</h1>
+          <h1 className="text-2xl font-semibold text-gray-900 sm:text-3xl">{medication.name}</h1>
           <p className="text-sm text-gray-500">
             Aktueller Bestand:{' '}
             <span className={`font-semibold ${medication.current_stock < 0 ? 'text-rose-600' : 'text-gray-900'}`}>
@@ -42,9 +42,9 @@ function MedicationDetail({ medication, onAddPackage, onSetStock, onPhotoUpload,
             )}
           </p>
         </div>
-        <div className="flex gap-3">
-          <Button onClick={onAddPackage}>Packung hinzufügen</Button>
-          <Button variant="secondary" onClick={onSetStock}>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Button onClick={onAddPackage} className="w-full sm:w-auto">Packung hinzufügen</Button>
+          <Button variant="secondary" onClick={onSetStock} className="w-full sm:w-auto">
             Bestand setzen
           </Button>
         </div>
@@ -94,14 +94,14 @@ function MedicationDetail({ medication, onAddPackage, onSetStock, onPhotoUpload,
         {info.map(field => (
           <div key={field.label} className="rounded-2xl bg-slate-50 p-4">
             <p className="text-xs uppercase tracking-wide text-gray-400">{field.label}</p>
-            <p className="text-lg font-semibold text-gray-900">{field.value ?? '–'}</p>
+            <p className="text-base font-semibold text-gray-900 sm:text-lg">{field.value ?? '–'}</p>
           </div>
         ))}
         <div className={`rounded-2xl p-4 ${isOverdue ? 'bg-rose-50' : 'bg-blue-50'}`}>
           <p className={`text-xs uppercase tracking-wide ${isOverdue ? 'text-rose-400' : 'text-blue-400'}`}>
             {isOverdue ? 'Überfällig' : 'Verbleibende Tage'}
           </p>
-          <p className={`text-3xl font-semibold ${isOverdue ? 'text-rose-700' : 'text-blue-700'}`}>
+          <p className={`text-2xl font-semibold sm:text-3xl ${isOverdue ? 'text-rose-700' : 'text-blue-700'}`}>
             {isOverdue
               ? `${Math.abs(daysRemaining).toFixed(1)} Tage`
               : daysRemaining !== null
