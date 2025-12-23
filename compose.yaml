@@ -1,0 +1,31 @@
+services:
+  tabletto:
+    build: .
+    container_name: tabletto-app
+    ports:
+      - "3000:3000"
+    # Use a named volume for production-stable DB storage. For local dev, you can
+    # replace with a bind mount: ./data:/app/data
+    volumes:
+      - tabletto-data:/app/data
+      # - ./data:/app/data
+    environment:
+      - JWT_SECRET=${JWT_SECRET:-change-this-secret-key-in-production}
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_PATH=/app/data/tabletto.db
+      - ENABLE_STOCK_SCHEDULER=${ENABLE_STOCK_SCHEDULER:-true}
+      - STOCK_SCHEDULER_CRON=${STOCK_SCHEDULER_CRON:-0 2 * * *}
+      - TZ=${TZ:-Europe/Berlin}
+    env_file:
+      - .env
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:3000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  tabletto-data:
+    driver: local
