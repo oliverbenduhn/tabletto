@@ -31,8 +31,15 @@ function MedicationDetailPage() {
   }, [id]);
 
   const handleAddPackage = async () => {
+    const value = prompt('Packungsgröße (Tabletten) eingeben');
+    if (value === null) return;
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError('Ungültige Packungsgröße');
+      return;
+    }
     try {
-      await api.updateStock(id, 'add_package');
+      await api.updateStock(id, 'add_package', amount);
       fetchMedication();
     } catch (err) {
       setError(err.message);

@@ -7,7 +7,6 @@ const initialState = {
   dosage_morning: 0,
   dosage_noon: 0,
   dosage_evening: 0,
-  tablets_per_package: 0,
   current_stock: 0,
   warning_threshold_days: 7
 };
@@ -28,7 +27,6 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
       [name]:
         name.includes('dosage') ||
         name.includes('stock') ||
-        name.includes('tablets') ||
         name.includes('warning')
           ? Number(value)
           : value
@@ -142,26 +140,15 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
           </button>
         ))}
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Input
-          label="Tabletten pro Packung"
-          name="tablets_per_package"
-          type="number"
-          min="1"
-          value={form.tablets_per_package}
-          onChange={handleChange}
-          helper="z. B. 20, 50 oder 100"
-        />
-        <Input
-          label="Aktueller Bestand"
-          name="current_stock"
-          type="number"
-          min="0"
-          value={form.current_stock}
-          onChange={handleChange}
-          helper="Wie viele Tabletten sind aktuell verfügbar?"
-        />
-      </div>
+      <Input
+        label="Aktueller Bestand"
+        name="current_stock"
+        type="number"
+        min="0"
+        value={form.current_stock}
+        onChange={handleChange}
+        helper="Wie viele Tabletten sind aktuell verfügbar?"
+      />
       <Input
         label="Warngrenze (Tage)"
         name="warning_threshold_days"

@@ -45,7 +45,7 @@ async function createMedication(req, res) {
     dosage_morning: Number(req.body.dosage_morning || 0),
     dosage_noon: Number(req.body.dosage_noon || 0),
     dosage_evening: Number(req.body.dosage_evening || 0),
-    tablets_per_package: Number(req.body.tablets_per_package),
+    tablets_per_package: Number(req.body.tablets_per_package || 0),
     current_stock: Number(req.body.current_stock || 0),
     warning_threshold_days: Number(req.body.warning_threshold_days || 7),
     photo_path: photoPath
@@ -105,7 +105,17 @@ async function updateStock(req, res) {
   let newStock = medication.current_stock;
 
   if (action === 'add_package') {
-    newStock = medication.current_stock + medication.tablets_per_package;
+    let packageSize = null;
+    if (typeof amount === 'number' && Number.isFinite(amount)) {
+      packageSize = amount;
+    } else if (medication.tablets_per_package > 0) {
+      packageSize = medication.tablets_per_package;
+    }
+
+    if (packageSize === null || packageSize <= 0) {
+      return res.status(400).json({ error: 'Packungsgröße muss größer als 0 sein' });
+    }
+    newStock = medication.current_stock + packageSize;
   } else if (action === 'set_stock') {
     if (typeof amount !== 'number' || amount < 0) {
       return res.status(400).json({ error: 'Ungültiger Bestand' });

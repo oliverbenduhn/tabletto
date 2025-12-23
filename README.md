@@ -146,7 +146,6 @@ CREATE TABLE medications (
   name TEXT NOT NULL,
   dosage_morning REAL NOT NULL DEFAULT 0,
   dosage_evening REAL NOT NULL DEFAULT 0,
-  tablets_per_package INTEGER NOT NULL,
   current_stock REAL NOT NULL DEFAULT 0,
   warning_threshold_days INTEGER NOT NULL DEFAULT 7,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -255,7 +254,6 @@ Ruft alle Medikamente des eingeloggten Benutzers ab.
       "name": "Aspirin",
       "dosage_morning": 1.0,
       "dosage_evening": 1.0,
-      "tablets_per_package": 20,
       "current_stock": 8.0,
       "warning_threshold_days": 7,
       "daily_consumption": 2.0,
@@ -283,7 +281,6 @@ Erstellt ein neues Medikament.
   "name": "Vitamin D",
   "dosage_morning": 1.0,
   "dosage_evening": 0.0,
-  "tablets_per_package": 30,
   "current_stock": 30.0,
   "warning_threshold_days": 7
 }
@@ -297,7 +294,6 @@ Erstellt ein neues Medikament.
     "name": "Vitamin D",
     "dosage_morning": 1.0,
     "dosage_evening": 0.0,
-    "tablets_per_package": 30,
     "current_stock": 30.0,
     "warning_threshold_days": 7,
     "daily_consumption": 1.0,
@@ -311,7 +307,6 @@ Erstellt ein neues Medikament.
 **Validierung:**
 - name: Nicht leer, max 100 Zeichen
 - dosage_morning, dosage_evening: >= 0, max 10
-- tablets_per_package: > 0, max 1000
 - current_stock: >= 0, max 10000
 - warning_threshold_days: 1-30
 
@@ -341,7 +336,6 @@ Aktualisiert ein Medikament.
   "name": "Aspirin 500mg",
   "dosage_morning": 1.0,
   "dosage_evening": 0.5,
-  "tablets_per_package": 20,
   "warning_threshold_days": 10
 }
 ```
@@ -387,7 +381,7 @@ Aktualisiert den Bestand eines Medikaments.
 ```
 
 **Actions:**
-- `add_package`: Fügt eine neue Packung hinzu (current_stock += tablets_per_package)
+- `add_package`: Fügt eine neue Packung hinzu (current_stock += amount)
 - `set_stock`: Setzt Bestand auf spezifischen Wert
 
 **Response (200):**
@@ -569,7 +563,6 @@ async function initDatabase() {
       name TEXT NOT NULL,
       dosage_morning REAL NOT NULL DEFAULT 0,
       dosage_evening REAL NOT NULL DEFAULT 0,
-      tablets_per_package INTEGER NOT NULL,
       current_stock REAL NOT NULL DEFAULT 0,
       warning_threshold_days INTEGER NOT NULL DEFAULT 7,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -717,9 +710,6 @@ function validateMedication(data) {
     errors.push('Abends-Dosierung muss zwischen 0 und 10 liegen');
   }
 
-  if (data.tablets_per_package <= 0 || data.tablets_per_package > 1000) {
-    errors.push('Tabletten pro Packung muss zwischen 1 und 1000 liegen');
-  }
 
   if (data.current_stock < 0 || data.current_stock > 10000) {
     errors.push('Aktueller Bestand muss zwischen 0 und 10000 liegen');

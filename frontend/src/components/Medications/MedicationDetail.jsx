@@ -21,7 +21,6 @@ function MedicationDetail({ medication, onAddPackage, onSetStock, onPhotoUpload,
     { label: 'Dosierung morgens', value: medication.dosage_morning },
     { label: 'Dosierung mittags', value: medication.dosage_noon },
     { label: 'Dosierung abends', value: medication.dosage_evening },
-    { label: 'Tabletten pro Packung', value: medication.tablets_per_package },
     { label: 'Täglicher Verbrauch', value: medication.daily_consumption },
     { label: 'Warngrenze (Tage)', value: medication.warning_threshold_days },
     { label: 'Letzter Bestand gemessen', value: lastMeasuredDate }

@@ -28,8 +28,10 @@ function validateMedication(data) {
     errors.push('Abends-Dosierung muss zwischen 0 und 10 liegen');
   }
 
-  if (data.tablets_per_package <= 0 || data.tablets_per_package > 1000) {
-    errors.push('Tabletten pro Packung muss zwischen 1 und 1000 liegen');
+  if (data.tablets_per_package !== undefined && data.tablets_per_package !== null) {
+    if (data.tablets_per_package < 0 || data.tablets_per_package > 1000) {
+      errors.push('Tabletten pro Packung muss zwischen 0 und 1000 liegen');
+    }
   }
 
   if (data.current_stock < 0 || data.current_stock > 10000) {

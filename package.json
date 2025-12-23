@@ -1,6 +1,6 @@
 {
   "name": "tabletto",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Tabletto - Medikamentenverwaltung",
   "private": true,
   "scripts": {
