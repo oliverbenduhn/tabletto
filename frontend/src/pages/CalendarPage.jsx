@@ -207,52 +207,6 @@ function CalendarPage() {
                 setCalendarView(arg.view.type);
               }
             }}
-            listDayDidMount={(arg) => {
-              console.log('🟦 listDayDidMount called');
-              console.log('   arg.el:', arg.el);
-              console.log('   arg.el HTML:', arg.el?.outerHTML?.substring(0, 200));
-
-              // Add depletion badge to list day header
-              const dateStr = arg.date.toISOString().split('T')[0];
-              console.log('   Date:', dateStr);
-
-              const depletingToday = events.filter(e => e.extendedProps.depletionDate === dateStr);
-              console.log('   Depleting today:', depletingToday.map(e => e.title));
-
-              if (depletingToday.length === 0) {
-                console.log('   ❌ No medications depleting today');
-                return;
-              }
-
-              // Find the target element - try multiple selectors
-              const target = arg.el.querySelector('.fc-list-day-text')
-                || arg.el.querySelector('.fc-list-day-cushion')
-                || arg.el.querySelector('a')
-                || arg.el;
-
-              console.log('   Target element:', target?.tagName, target?.className);
-              console.log('   Target HTML:', target?.outerHTML?.substring(0, 200));
-
-              // Check if badge already exists
-              if (target.querySelector('.js-depletion-list-badge')) {
-                console.log('   ⚠️ Badge already exists');
-                return;
-              }
-
-              // Create and append badge
-              const badge = document.createElement('span');
-              badge.className = 'js-depletion-list-badge';
-
-              if (depletingToday.length === 1) {
-                badge.textContent = ` ⚠️ ${depletingToday[0].title} leer`;
-              } else {
-                badge.textContent = ` ⚠️ ${depletingToday.length} leer`;
-              }
-
-              badge.style.cssText = 'margin-left: 8px; background: #dc2626; color: white; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap;';
-              target.appendChild(badge);
-              console.log('   ✅ Badge added');
-            }}
             dayCellDidMount={(arg) => {
               const dateStr = arg.date.toISOString().split('T')[0];
               // Finde Medikamente, die an diesem Tag leer gehen
@@ -285,39 +239,37 @@ function CalendarPage() {
               }
 
               console.log('   arg.el:', arg.el);
-              console.log('   arg.el HTML:', arg.el?.outerHTML?.substring(0, 300));
+              console.log('   arg.el HTML:', arg.el?.outerHTML);
 
-              // Find the list day row this event belongs to
-              const eventRow = arg.el.closest('tr');
-              console.log('   Event row:', eventRow);
+              // Find the title cell in the list view
+              const titleCell = arg.el.querySelector('.fc-list-event-title');
+              console.log('   Title cell:', titleCell);
 
-              if (!eventRow) {
-                console.log('   ❌ No event row found');
+              if (!titleCell) {
+                console.log('   ❌ No title cell found');
                 return;
               }
 
+              // Find the list day row this event belongs to
+              const eventRow = arg.el;
               let listDayRow = eventRow.previousElementSibling;
               let iterations = 0;
               while (listDayRow && !listDayRow.classList.contains('fc-list-day')) {
                 listDayRow = listDayRow.previousElementSibling;
                 iterations++;
                 if (iterations > 10) {
-                  console.log('   ❌ Too many iterations searching for list day row');
+                  console.log('   ❌ Too many iterations');
                   break;
                 }
               }
 
-              console.log('   List day row:', listDayRow);
-              console.log('   List day row HTML:', listDayRow?.outerHTML?.substring(0, 200));
-
               const listDate = listDayRow?.getAttribute('data-date');
               const depletionDate = arg.event.extendedProps?.depletionDate;
 
-              console.log('   List date:', listDate);
-              console.log('   Depletion date:', depletionDate);
+              console.log('   List date:', listDate, 'Depletion:', depletionDate);
 
               if (!listDate || !depletionDate) {
-                console.log('   ❌ Missing date information');
+                console.log('   ❌ Missing dates');
                 return;
               }
 
@@ -329,20 +281,40 @@ function CalendarPage() {
 
               console.log('   Calculated diff days:', diffDays);
 
-              // Update the remaining days text
-              const target = arg.el.querySelector('.js-remaining-text');
-              console.log('   Target .js-remaining-text:', target);
-              console.log('   Target HTML:', target?.outerHTML);
+              // Create content with medication name and remaining days
+              const content = document.createElement('div');
+              content.style.cssText = 'display: flex; justify-content: space-between; align-items: center; width: 100%;';
 
-              if (target) {
-                const newText = diffDays <= 0
-                  ? '⛔ LEER'
-                  : `${diffDays} Tag${diffDays !== 1 ? 'e' : ''}`;
-                target.textContent = newText;
-                console.log('   ✅ Updated text to:', newText);
-              } else {
-                console.log('   ❌ Target .js-remaining-text not found in DOM');
-                console.log('   All elements with js-remaining-text:', document.querySelectorAll('.js-remaining-text'));
+              const nameSpan = document.createElement('span');
+              nameSpan.textContent = arg.event.title;
+              nameSpan.style.cssText = 'font-weight: 600;';
+
+              const daysSpan = document.createElement('span');
+              daysSpan.textContent = diffDays <= 0 ? '⛔ LEER' : `${diffDays} Tag${diffDays !== 1 ? 'e' : ''}`;
+              daysSpan.style.cssText = 'font-size: 0.85em; opacity: 0.8; margin-left: 8px;';
+
+              content.appendChild(nameSpan);
+              content.appendChild(daysSpan);
+
+              // Clear and append using safe DOM methods
+              while (titleCell.firstChild) {
+                titleCell.removeChild(titleCell.firstChild);
+              }
+              titleCell.appendChild(content);
+
+              console.log('   ✅ Content updated');
+
+              // Add badge to list day header if this medication depletes today
+              if (listDate === depletionDate && listDayRow) {
+                const dayHeader = listDayRow.querySelector('.fc-list-day-cushion');
+                if (dayHeader && !dayHeader.querySelector('.js-depletion-badge-' + arg.event.id)) {
+                  const badge = document.createElement('span');
+                  badge.className = 'js-depletion-badge-' + arg.event.id;
+                  badge.textContent = ` ⚠️ ${arg.event.title} leer`;
+                  badge.style.cssText = 'margin-left: 8px; background: #dc2626; color: white; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap;';
+                  dayHeader.appendChild(badge);
+                  console.log('   ✅ Badge added to day header');
+                }
               }
             }}
             eventContent={(arg) => {
