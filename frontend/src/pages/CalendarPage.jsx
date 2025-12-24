@@ -213,7 +213,7 @@ function CalendarPage() {
               if (!depletingToday.length) {
                 return;
               }
-              const target = arg.el.querySelector('.fc-list-day-text');
+              const target = arg.el.querySelector('.fc-list-day-text') || arg.el.querySelector('.fc-list-day-cushion');
               if (!target || target.querySelector('.js-depletion-list-badge')) {
                 return;
               }
@@ -246,6 +246,44 @@ function CalendarPage() {
                   }
                   arg.el.querySelector('.fc-daygrid-day-frame')?.prepend(indicator);
                 });
+              }
+            }}
+            eventDidMount={(arg) => {
+              if (!arg.view?.type?.startsWith('list')) {
+                return;
+              }
+              const eventRow = arg.el.closest('tr');
+              let listDayRow = eventRow?.previousElementSibling || null;
+              while (listDayRow && !listDayRow.classList.contains('fc-list-day')) {
+                listDayRow = listDayRow.previousElementSibling;
+              }
+              const listDate = listDayRow?.getAttribute('data-date');
+              if (!listDate) {
+                return;
+              }
+              const depletionDate = arg.event.extendedProps?.depletionDate;
+              if (!depletionDate) {
+                return;
+              }
+              const dayMs = 24 * 60 * 60 * 1000;
+              const listDayStart = new Date(`${listDate}T00:00:00`);
+              const depletionDayStart = new Date(`${depletionDate}T00:00:00`);
+              const diffDays = Math.max(0, Math.round((depletionDayStart - listDayStart) / dayMs));
+              const target = arg.el.querySelector('.js-remaining-text');
+              if (target) {
+                target.textContent = diffDays <= 0
+                  ? '⛔ LEER'
+                  : `${diffDays} Tag${diffDays !== 1 ? 'e' : ''}`;
+              }
+              if (listDate === depletionDate) {
+                const listDayText = listDayRow.querySelector('.fc-list-day-text') || listDayRow.querySelector('.fc-list-day-cushion');
+                if (listDayText && !listDayText.querySelector('.js-depletion-list-badge')) {
+                  const badge = document.createElement('span');
+                  badge.className = 'js-depletion-list-badge';
+                  badge.textContent = ` ⚠️ ${arg.event.title} leer`;
+                  badge.style.cssText = 'margin-left: 6px; background: #dc2626; color: white; padding: 2px 6px; border-radius: 999px; font-size: 11px; font-weight: 700;';
+                  listDayText.appendChild(badge);
+                }
               }
             }}
             eventContent={(arg) => {
