@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const uploadRoot = path.join(__dirname, '../../uploads');
+const uploadRoot = process.env.UPLOADS_PATH || path.join(__dirname, '../../uploads');
 const medicationPhotoDir = path.join(uploadRoot, 'medications');
 
 function ensureUploadDirs() {
