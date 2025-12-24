@@ -237,9 +237,10 @@ function CalendarPage() {
               while (listDayRow && !listDayRow.classList.contains('fc-list-day')) {
                 listDayRow = listDayRow.previousElementSibling;
               }
-              const listDate = listDayRow?.getAttribute('data-date');
+              let listDate = listDayRow?.getAttribute('data-date');
               if (!listDate) {
-                return;
+                const dateEl = arg.el.closest('[data-date]');
+                listDate = dateEl?.getAttribute('data-date') || null;
               }
               const target = arg.el.querySelector('.js-remaining-text');
               if (!target) {
@@ -248,6 +249,18 @@ function CalendarPage() {
               const depletionDate = target.getAttribute('data-depletion-date');
               if (!depletionDate) {
                 return;
+              }
+              if (!listDate) {
+                const segmentStart = arg.event?._instance?.range?.start;
+                if (segmentStart instanceof Date && !Number.isNaN(segmentStart.getTime())) {
+                  listDate = segmentStart.toISOString().split('T')[0];
+                }
+              }
+              if (!listDate) {
+                return;
+              }
+              if (!listDayRow) {
+                listDayRow = arg.el.ownerDocument?.querySelector(`.fc-list-day[data-date="${listDate}"]`) || null;
               }
               const listDayText = listDayRow?.querySelector('.fc-list-day-text');
               if (listDayText && depletionDate === listDate && !listDayText.querySelector('.js-depletion-list-badge')) {
