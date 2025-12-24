@@ -144,11 +144,11 @@ function CalendarPage() {
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
           <FullCalendar
             plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-            initialView={isMobile ? 'listMonth' : 'dayGridMonth'}
+            initialView="dayGridMonth"
             headerToolbar={{
               left: isMobile ? 'prev,next' : 'prev,next today',
               center: 'title',
-              right: isMobile ? 'listMonth' : 'dayGridMonth,timeGridWeek,listMonth'
+              right: isMobile ? '' : 'dayGridMonth,timeGridWeek,listMonth'
             }}
             locale="de"
             buttonText={{
@@ -165,6 +165,8 @@ function CalendarPage() {
             weekNumbers={!isMobile}
             weekText="KW"
             dayHeaderFormat={{ weekday: isMobile ? 'narrow' : 'short' }}
+            fixedWeekCount={false}
+            showNonCurrentDates={false}
             dayCellDidMount={(arg) => {
               const dateStr = arg.date.toISOString().split('T')[0];
               // Finde Medikamente, die an diesem Tag leer gehen
@@ -202,8 +204,7 @@ function CalendarPage() {
                 </div>
               );
             }}
-            dayMaxEvents={isMobile ? 2 : 4}
-            moreLinkText="weitere"
+            dayMaxEvents={false}
           />
         </div>
 
