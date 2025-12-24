@@ -208,23 +208,36 @@ function CalendarPage() {
               }
             }}
             listDayDidMount={(arg) => {
+              // Add depletion badge to list day header
               const dateStr = arg.date.toISOString().split('T')[0];
               const depletingToday = events.filter(e => e.extendedProps.depletionDate === dateStr);
-              if (!depletingToday.length) {
+
+              if (depletingToday.length === 0) {
                 return;
               }
-              const target = arg.el.querySelector('.fc-list-day-text') || arg.el.querySelector('.fc-list-day-cushion');
-              if (!target || target.querySelector('.js-depletion-list-badge')) {
+
+              // Find the target element - try multiple selectors
+              const target = arg.el.querySelector('.fc-list-day-text')
+                || arg.el.querySelector('.fc-list-day-cushion')
+                || arg.el.querySelector('a')
+                || arg.el;
+
+              // Check if badge already exists
+              if (target.querySelector('.js-depletion-list-badge')) {
                 return;
               }
+
+              // Create and append badge
               const badge = document.createElement('span');
               badge.className = 'js-depletion-list-badge';
+
               if (depletingToday.length === 1) {
                 badge.textContent = ` ⚠️ ${depletingToday[0].title} leer`;
               } else {
                 badge.textContent = ` ⚠️ ${depletingToday.length} leer`;
               }
-              badge.style.cssText = 'margin-left: 6px; background: #dc2626; color: white; padding: 2px 6px; border-radius: 999px; font-size: 11px; font-weight: 700;';
+
+              badge.style.cssText = 'margin-left: 8px; background: #dc2626; color: white; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap;';
               target.appendChild(badge);
             }}
             dayCellDidMount={(arg) => {
@@ -249,55 +262,44 @@ function CalendarPage() {
               }
             }}
             eventDidMount={(arg) => {
+              // Only process list view events
               if (!arg.view?.type?.startsWith('list')) {
                 return;
               }
+
+              // Find the list day row this event belongs to
               const eventRow = arg.el.closest('tr');
-              let listDayRow = eventRow?.previousElementSibling || null;
+              if (!eventRow) return;
+
+              let listDayRow = eventRow.previousElementSibling;
               while (listDayRow && !listDayRow.classList.contains('fc-list-day')) {
                 listDayRow = listDayRow.previousElementSibling;
               }
+
               const listDate = listDayRow?.getAttribute('data-date');
-              if (!listDate) {
-                return;
-              }
               const depletionDate = arg.event.extendedProps?.depletionDate;
-              if (!depletionDate) {
+
+              if (!listDate || !depletionDate) {
                 return;
               }
+
+              // Calculate days remaining from this list date
               const dayMs = 24 * 60 * 60 * 1000;
               const listDayStart = new Date(`${listDate}T00:00:00`);
               const depletionDayStart = new Date(`${depletionDate}T00:00:00`);
               const diffDays = Math.max(0, Math.round((depletionDayStart - listDayStart) / dayMs));
+
+              // Update the remaining days text
               const target = arg.el.querySelector('.js-remaining-text');
               if (target) {
                 target.textContent = diffDays <= 0
                   ? '⛔ LEER'
                   : `${diffDays} Tag${diffDays !== 1 ? 'e' : ''}`;
               }
-              if (listDate === depletionDate) {
-                const listDayText = listDayRow.querySelector('.fc-list-day-text') || listDayRow.querySelector('.fc-list-day-cushion');
-                if (listDayText && !listDayText.querySelector('.js-depletion-list-badge')) {
-                  const badge = document.createElement('span');
-                  badge.className = 'js-depletion-list-badge';
-                  badge.textContent = ` ⚠️ ${arg.event.title} leer`;
-                  badge.style.cssText = 'margin-left: 6px; background: #dc2626; color: white; padding: 2px 6px; border-radius: 999px; font-size: 11px; font-weight: 700;';
-                  listDayText.appendChild(badge);
-                }
-              }
             }}
             eventContent={(arg) => {
-              const { daysRemaining, depletionDate } = arg.event.extendedProps;
-              let displayDays = daysRemaining;
-              if (arg.view?.type?.startsWith('list')) {
-                const segmentStart = arg.event?._instance?.range?.start;
-                if (segmentStart instanceof Date && !Number.isNaN(segmentStart.getTime()) && depletionDate) {
-                  const dayMs = 24 * 60 * 60 * 1000;
-                  const listDayStart = new Date(segmentStart.getFullYear(), segmentStart.getMonth(), segmentStart.getDate());
-                  const depletionDayStart = new Date(`${depletionDate}T00:00:00`);
-                  displayDays = Math.max(0, Math.round((depletionDayStart - listDayStart) / dayMs));
-                }
-              }
+              const { daysRemaining } = arg.event.extendedProps;
+              const isListView = arg.view?.type?.startsWith('list');
 
               return (
                 <div className="fc-event-main-frame" style={{ padding: isMobile ? '1px 3px' : '2px 4px' }}>
@@ -311,7 +313,8 @@ function CalendarPage() {
                     data-depletion-date={arg.event.extendedProps.depletionDate}
                     style={{ fontSize: isMobile ? '9px' : '10px', opacity: 0.9, marginTop: isMobile ? '1px' : '2px' }}
                   >
-                    {displayDays <= 0 ? '⛔ LEER' : `${displayDays} Tag${displayDays !== 1 ? 'e' : ''}`}
+                    {/* Initial value - will be updated by eventDidMount for list view */}
+                    {isListView ? '...' : (daysRemaining <= 0 ? '⛔ LEER' : `${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''}`)}
                   </div>
                 </div>
               );
