@@ -188,35 +188,16 @@ function CalendarPage() {
                 });
               }
             }}
-            listDayDidMount={(arg) => {
-              const dateStr = arg.date.toISOString().split('T')[0];
-              const depletingToday = events.filter(e => e.extendedProps.depletionDate === dateStr);
-              if (depletingToday.length === 0) {
-                return;
-              }
-              if (arg.el.querySelector('.js-depletion-list-badge')) {
-                return;
-              }
-              const target = arg.el.querySelector('.fc-list-day-text');
-              if (!target) {
-                return;
-              }
-              const badge = document.createElement('span');
-              badge.className = 'js-depletion-list-badge';
-              if (depletingToday.length === 1) {
-                badge.textContent = ` ⚠️ ${depletingToday[0].title} leer`;
-              } else {
-                badge.textContent = ` ⚠️ ${depletingToday.length} leer`;
-              }
-              badge.style.cssText = 'margin-left: 6px; background: #dc2626; color: white; padding: 2px 6px; border-radius: 999px; font-size: 11px; font-weight: 700;';
-              target.appendChild(badge);
-            }}
             eventDidMount={(arg) => {
               if (!arg.view?.type?.startsWith('list')) {
                 return;
               }
-              const listDayEl = arg.el.closest('.fc-list-day');
-              const listDate = listDayEl?.getAttribute('data-date');
+              const eventRow = arg.el.closest('tr');
+              let listDayRow = eventRow?.previousElementSibling || null;
+              while (listDayRow && !listDayRow.classList.contains('fc-list-day')) {
+                listDayRow = listDayRow.previousElementSibling;
+              }
+              const listDate = listDayRow?.getAttribute('data-date');
               if (!listDate) {
                 return;
               }
@@ -227,6 +208,14 @@ function CalendarPage() {
               const depletionDate = target.getAttribute('data-depletion-date');
               if (!depletionDate) {
                 return;
+              }
+              const listDayText = listDayRow?.querySelector('.fc-list-day-text');
+              if (listDayText && depletionDate === listDate && !listDayText.querySelector('.js-depletion-list-badge')) {
+                const badge = document.createElement('span');
+                badge.className = 'js-depletion-list-badge';
+                badge.textContent = ` ⚠️ ${arg.event.title} leer`;
+                badge.style.cssText = 'margin-left: 6px; background: #dc2626; color: white; padding: 2px 6px; border-radius: 999px; font-size: 11px; font-weight: 700;';
+                listDayText.appendChild(badge);
               }
               const dayMs = 24 * 60 * 60 * 1000;
               const listDayStart = new Date(`${listDate}T00:00:00`);
