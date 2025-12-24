@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
 import Header from '../components/Layout/Header';
@@ -165,6 +164,7 @@ function CalendarPage() {
             weekNumbers={!isMobile}
             weekText="KW"
             dayHeaderFormat={{ weekday: isMobile ? 'narrow' : 'short' }}
+            displayEventTime={false}
             fixedWeekCount={false}
             showNonCurrentDates={false}
             dayCellDidMount={(arg) => {
@@ -187,6 +187,29 @@ function CalendarPage() {
                   arg.el.querySelector('.fc-daygrid-day-frame')?.prepend(indicator);
                 });
               }
+            }}
+            listDayDidMount={(arg) => {
+              const dateStr = arg.date.toISOString().split('T')[0];
+              const depletingToday = events.filter(e => e.extendedProps.depletionDate === dateStr);
+              if (depletingToday.length === 0) {
+                return;
+              }
+              if (arg.el.querySelector('.js-depletion-list-badge')) {
+                return;
+              }
+              const target = arg.el.querySelector('.fc-list-day-text');
+              if (!target) {
+                return;
+              }
+              const badge = document.createElement('span');
+              badge.className = 'js-depletion-list-badge';
+              if (depletingToday.length === 1) {
+                badge.textContent = ` ⚠️ ${depletingToday[0].title} leer`;
+              } else {
+                badge.textContent = ` ⚠️ ${depletingToday.length} leer`;
+              }
+              badge.style.cssText = 'margin-left: 6px; background: #dc2626; color: white; padding: 2px 6px; border-radius: 999px; font-size: 11px; font-weight: 700;';
+              target.appendChild(badge);
             }}
             eventDidMount={(arg) => {
               if (!arg.view?.type?.startsWith('list')) {
