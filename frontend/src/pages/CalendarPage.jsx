@@ -188,6 +188,31 @@ function CalendarPage() {
                 });
               }
             }}
+            eventDidMount={(arg) => {
+              if (!arg.view?.type?.startsWith('list')) {
+                return;
+              }
+              const listDayEl = arg.el.closest('.fc-list-day');
+              const listDate = listDayEl?.getAttribute('data-date');
+              if (!listDate) {
+                return;
+              }
+              const target = arg.el.querySelector('.js-remaining-text');
+              if (!target) {
+                return;
+              }
+              const depletionDate = target.getAttribute('data-depletion-date');
+              if (!depletionDate) {
+                return;
+              }
+              const dayMs = 24 * 60 * 60 * 1000;
+              const listDayStart = new Date(`${listDate}T00:00:00`);
+              const depletionDayStart = new Date(`${depletionDate}T00:00:00`);
+              const diffDays = Math.max(0, Math.round((depletionDayStart - listDayStart) / dayMs));
+              target.textContent = diffDays <= 0
+                ? '⛔ LEER'
+                : `${diffDays} Tag${diffDays !== 1 ? 'e' : ''}`;
+            }}
             eventContent={(arg) => {
               const { daysRemaining } = arg.event.extendedProps;
 
@@ -198,7 +223,11 @@ function CalendarPage() {
                       {arg.event.title}
                     </div>
                   </div>
-                  <div style={{ fontSize: isMobile ? '9px' : '10px', opacity: 0.9, marginTop: isMobile ? '1px' : '2px' }}>
+                  <div
+                    className="js-remaining-text"
+                    data-depletion-date={arg.event.extendedProps.depletionDate}
+                    style={{ fontSize: isMobile ? '9px' : '10px', opacity: 0.9, marginTop: isMobile ? '1px' : '2px' }}
+                  >
                     {daysRemaining <= 0 ? '⛔ LEER' : `${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''}`}
                   </div>
                 </div>
