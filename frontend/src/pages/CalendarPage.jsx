@@ -207,6 +207,26 @@ function CalendarPage() {
                 setCalendarView(arg.view.type);
               }
             }}
+            listDayDidMount={(arg) => {
+              const dateStr = arg.date.toISOString().split('T')[0];
+              const depletingToday = events.filter(e => e.extendedProps.depletionDate === dateStr);
+              if (!depletingToday.length) {
+                return;
+              }
+              const target = arg.el.querySelector('.fc-list-day-text');
+              if (!target || target.querySelector('.js-depletion-list-badge')) {
+                return;
+              }
+              const badge = document.createElement('span');
+              badge.className = 'js-depletion-list-badge';
+              if (depletingToday.length === 1) {
+                badge.textContent = ` ⚠️ ${depletingToday[0].title} leer`;
+              } else {
+                badge.textContent = ` ⚠️ ${depletingToday.length} leer`;
+              }
+              badge.style.cssText = 'margin-left: 6px; background: #dc2626; color: white; padding: 2px 6px; border-radius: 999px; font-size: 11px; font-weight: 700;';
+              target.appendChild(badge);
+            }}
             dayCellDidMount={(arg) => {
               const dateStr = arg.date.toISOString().split('T')[0];
               // Finde Medikamente, die an diesem Tag leer gehen
@@ -228,77 +248,18 @@ function CalendarPage() {
                 });
               }
             }}
-            eventDidMount={(arg) => {
-              if (!arg.view?.type?.startsWith('list')) {
-                return;
-              }
-              const findListDayRow = (startRow) => {
-                let node = startRow;
-                while (node) {
-                  let prev = node.previousElementSibling;
-                  while (prev) {
-                    if (prev.classList?.contains('fc-list-day')) {
-                      return prev;
-                    }
-                    prev = prev.previousElementSibling;
-                  }
-                  node = node.parentElement;
-                }
-                return null;
-              };
-
-              const eventRow = arg.el.closest('tr');
-              let listDayRow = findListDayRow(eventRow);
-              let listDate = null;
-              if (listDayRow) {
-                listDate = listDayRow.getAttribute('data-date');
-                if (!listDate) {
-                  const dateEl = listDayRow.querySelector('[data-date]');
-                  listDate = dateEl?.getAttribute('data-date') || null;
-                }
-              }
-              if (!listDate) {
-                const dateEl = arg.el.closest('[data-date]');
-                listDate = dateEl?.getAttribute('data-date') || null;
-              }
-              const target = arg.el.querySelector('.js-remaining-text');
-              if (!target) {
-                return;
-              }
-              const depletionDate = target.getAttribute('data-depletion-date');
-              if (!depletionDate) {
-                return;
-              }
-              if (!listDate) {
-                const segmentStart = arg.event?._instance?.range?.start;
-                if (segmentStart instanceof Date && !Number.isNaN(segmentStart.getTime())) {
-                  listDate = segmentStart.toISOString().split('T')[0];
-                }
-              }
-              if (!listDate) {
-                return;
-              }
-              if (!listDayRow) {
-                listDayRow = arg.el.ownerDocument?.querySelector(`.fc-list-day[data-date="${listDate}"]`) || null;
-              }
-              const listDayText = listDayRow?.querySelector('.fc-list-day-text') || listDayRow?.querySelector('[data-date]');
-              if (listDayText && depletionDate === listDate && !listDayText.querySelector('.js-depletion-list-badge')) {
-                const badge = document.createElement('span');
-                badge.className = 'js-depletion-list-badge';
-                badge.textContent = ` ⚠️ ${arg.event.title} leer`;
-                badge.style.cssText = 'margin-left: 6px; background: #dc2626; color: white; padding: 2px 6px; border-radius: 999px; font-size: 11px; font-weight: 700;';
-                listDayText.appendChild(badge);
-              }
-              const dayMs = 24 * 60 * 60 * 1000;
-              const listDayStart = new Date(`${listDate}T00:00:00`);
-              const depletionDayStart = new Date(`${depletionDate}T00:00:00`);
-              const diffDays = Math.max(0, Math.round((depletionDayStart - listDayStart) / dayMs));
-              target.textContent = diffDays <= 0
-                ? '⛔ LEER'
-                : `${diffDays} Tag${diffDays !== 1 ? 'e' : ''}`;
-            }}
             eventContent={(arg) => {
-              const { daysRemaining } = arg.event.extendedProps;
+              const { daysRemaining, depletionDate } = arg.event.extendedProps;
+              let displayDays = daysRemaining;
+              if (arg.view?.type?.startsWith('list')) {
+                const segmentStart = arg.event?._instance?.range?.start;
+                if (segmentStart instanceof Date && !Number.isNaN(segmentStart.getTime()) && depletionDate) {
+                  const dayMs = 24 * 60 * 60 * 1000;
+                  const listDayStart = new Date(segmentStart.getFullYear(), segmentStart.getMonth(), segmentStart.getDate());
+                  const depletionDayStart = new Date(`${depletionDate}T00:00:00`);
+                  displayDays = Math.max(0, Math.round((depletionDayStart - listDayStart) / dayMs));
+                }
+              }
 
               return (
                 <div className="fc-event-main-frame" style={{ padding: isMobile ? '1px 3px' : '2px 4px' }}>
@@ -312,7 +273,7 @@ function CalendarPage() {
                     data-depletion-date={arg.event.extendedProps.depletionDate}
                     style={{ fontSize: isMobile ? '9px' : '10px', opacity: 0.9, marginTop: isMobile ? '1px' : '2px' }}
                   >
-                    {daysRemaining <= 0 ? '⛔ LEER' : `${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''}`}
+                    {displayDays <= 0 ? '⛔ LEER' : `${displayDays} Tag${displayDays !== 1 ? 'e' : ''}`}
                   </div>
                 </div>
               );
