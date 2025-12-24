@@ -134,6 +134,17 @@ class ApiService {
     });
   }
 
+  async getPreferences() {
+    return this.request('/user/preferences');
+  }
+
+  async updatePreferences(preferences) {
+    return this.request('/user/preferences', {
+      method: 'PUT',
+      body: JSON.stringify(preferences)
+    });
+  }
+
   async exportData() {
     return this.request('/data/export');
   }

@@ -87,6 +87,7 @@ function DashboardPage() {
   const [toast, setToast] = useState(null);
   const [statsPulse, setStatsPulse] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const formRef = useRef(null);
 
   const fetchMedications = async () => {
@@ -108,10 +109,33 @@ function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    let active = true;
+    api.getPreferences()
+      .then(({ preferences }) => {
+        if (!active) return;
+        if (preferences?.dashboardView) {
+          setViewMode(preferences.dashboardView);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setPreferencesLoaded(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!toast) return;
     const timeout = setTimeout(() => setToast(null), 4000);
     return () => clearTimeout(timeout);
   }, [toast]);
+
+  useEffect(() => {
+    if (!preferencesLoaded) return;
+    api.updatePreferences({ dashboardView: viewMode }).catch(() => {});
+  }, [viewMode, preferencesLoaded]);
 
   const handleCreateMedication = async form => {
     setIsSubmitting(true);

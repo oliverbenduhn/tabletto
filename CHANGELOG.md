@@ -5,6 +5,21 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/).
 
+## [1.3.0] - 2025-12-24
+
+### Hinzugefügt
+- 🧠 Benutzerpräferenzen serverseitig gespeichert (Dashboard- und Kalender-Ansicht)
+- 📁 Upload-Pfad konfigurierbar über `UPLOADS_PATH` (Persistenz über Volume)
+- 🗓️ Mobile Monatsansicht im Kalender
+- 🏷️ Hinweis in der Listenansicht für den Tag, an dem ein Medikament leer geht
+
+### Geändert
+- 📉 Bestandsabzug läuft immer um 02:00 (unabhängig von manuellen Änderungen)
+- 📆 Kalender-Monatsansicht ohne erzwungene 6-Wochen-Ansicht und ohne Fremdmonatstage
+- 📋 Listenansicht zeigt Resttage relativ zum Listentag
+- 🔧 Wochenansicht entfernt
+- 📦 Version auf 1.3.0 erhöht
+
 ## [1.0.5] - 2025-11-27
 
 ### Hinzugefügt

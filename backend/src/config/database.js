@@ -19,6 +19,8 @@ async function initDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
+      dashboard_view TEXT DEFAULT 'grid',
+      calendar_view TEXT DEFAULT 'dayGridMonth',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       last_login DATETIME
     );
@@ -113,6 +115,32 @@ async function initDatabase() {
     }
   } catch (error) {
     console.error('Fehler bei der Migration (photo_path):', error);
+    // Don't fail initialization if migration fails
+  }
+
+  // Migration: Add user preference columns if they don't exist
+  try {
+    const userTableInfo = await db.all("PRAGMA table_info(users)");
+    const hasDashboardView = userTableInfo.some(col => col.name === 'dashboard_view');
+    const hasCalendarView = userTableInfo.some(col => col.name === 'calendar_view');
+
+    if (!hasDashboardView) {
+      console.log('Führe Migration aus: Füge dashboard_view Spalte hinzu');
+      await db.exec(`
+        ALTER TABLE users ADD COLUMN dashboard_view TEXT DEFAULT 'grid';
+      `);
+      console.log('Migration dashboard_view erfolgreich abgeschlossen');
+    }
+
+    if (!hasCalendarView) {
+      console.log('Führe Migration aus: Füge calendar_view Spalte hinzu');
+      await db.exec(`
+        ALTER TABLE users ADD COLUMN calendar_view TEXT DEFAULT 'dayGridMonth';
+      `);
+      console.log('Migration calendar_view erfolgreich abgeschlossen');
+    }
+  } catch (error) {
+    console.error('Fehler bei der Migration (user preferences):', error);
     // Don't fail initialization if migration fails
   }
 

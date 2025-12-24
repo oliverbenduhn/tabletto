@@ -26,7 +26,44 @@ async function updatePassword(id, passwordHash) {
 
 async function findById(id) {
   const db = getDatabase();
-  return db.get('SELECT id, email, created_at, last_login FROM users WHERE id = ?', [id]);
+  return db.get('SELECT id, email, created_at, last_login, dashboard_view, calendar_view FROM users WHERE id = ?', [id]);
 }
 
-module.exports = { createUser, findByEmail, updateLastLogin, updatePassword, findById };
+async function getPreferences(id) {
+  const db = getDatabase();
+  return db.get('SELECT dashboard_view, calendar_view FROM users WHERE id = ?', [id]);
+}
+
+async function updatePreferences(id, { dashboardView, calendarView }) {
+  const db = getDatabase();
+  const fields = [];
+  const values = [];
+
+  if (dashboardView) {
+    fields.push('dashboard_view = ?');
+    values.push(dashboardView);
+  }
+
+  if (calendarView) {
+    fields.push('calendar_view = ?');
+    values.push(calendarView);
+  }
+
+  if (!fields.length) {
+    return getPreferences(id);
+  }
+
+  values.push(id);
+  await db.run(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
+  return getPreferences(id);
+}
+
+module.exports = {
+  createUser,
+  findByEmail,
+  updateLastLogin,
+  updatePassword,
+  findById,
+  getPreferences,
+  updatePreferences
+};

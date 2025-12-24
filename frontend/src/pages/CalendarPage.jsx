@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -13,6 +13,9 @@ function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isMobile, setIsMobile] = useState(false);
+  const [calendarView, setCalendarView] = useState('dayGridMonth');
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  const calendarRef = useRef(null);
 
   useEffect(() => {
     loadMedications();
@@ -24,6 +27,37 @@ function CalendarPage() {
     window.addEventListener('resize', updateIsMobile);
     return () => window.removeEventListener('resize', updateIsMobile);
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    api.getPreferences()
+      .then(({ preferences }) => {
+        if (!active) return;
+        if (preferences?.calendarView) {
+          setCalendarView(preferences.calendarView);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setPreferencesLoaded(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!preferencesLoaded) return;
+    const calendarApi = calendarRef.current?.getApi();
+    if (calendarApi && calendarApi.view.type !== calendarView) {
+      calendarApi.changeView(calendarView);
+    }
+  }, [calendarView, preferencesLoaded]);
+
+  useEffect(() => {
+    if (!preferencesLoaded) return;
+    api.updatePreferences({ calendarView }).catch(() => {});
+  }, [calendarView, preferencesLoaded]);
 
   const loadMedications = async () => {
     try {
@@ -142,12 +176,13 @@ function CalendarPage() {
 
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
           <FullCalendar
+            ref={calendarRef}
             plugins={[dayGridPlugin, listPlugin, interactionPlugin]}
-            initialView="dayGridMonth"
+            initialView={calendarView}
             headerToolbar={{
               left: isMobile ? 'prev,next' : 'prev,next today',
               center: 'title',
-              right: isMobile ? '' : 'dayGridMonth,listMonth'
+              right: isMobile ? 'listMonth' : 'dayGridMonth,listMonth'
             }}
             locale="de"
             buttonText={{
@@ -167,6 +202,11 @@ function CalendarPage() {
             displayEventTime={false}
             fixedWeekCount={false}
             showNonCurrentDates={false}
+            datesSet={(arg) => {
+              if (arg.view.type !== calendarView) {
+                setCalendarView(arg.view.type);
+              }
+            }}
             dayCellDidMount={(arg) => {
               const dateStr = arg.date.toISOString().split('T')[0];
               // Finde Medikamente, die an diesem Tag leer gehen
