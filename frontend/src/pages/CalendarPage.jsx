@@ -321,6 +321,12 @@ function CalendarPage() {
               const { daysRemaining } = arg.event.extendedProps;
               const isListView = arg.view?.type?.startsWith('list');
 
+              // For list view, return null - we handle rendering in eventDidMount
+              if (isListView) {
+                return null;
+              }
+
+              // For month/grid view, render the event content
               return (
                 <div className="fc-event-main-frame" style={{ padding: isMobile ? '1px 3px' : '2px 4px' }}>
                   <div className="fc-event-title-container">
@@ -333,8 +339,7 @@ function CalendarPage() {
                     data-depletion-date={arg.event.extendedProps.depletionDate}
                     style={{ fontSize: isMobile ? '9px' : '10px', opacity: 0.9, marginTop: isMobile ? '1px' : '2px' }}
                   >
-                    {/* Initial value - will be updated by eventDidMount for list view */}
-                    {isListView ? '...' : (daysRemaining <= 0 ? '⛔ LEER' : `${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''}`)}
+                    {daysRemaining <= 0 ? '⛔ LEER' : `${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''}`}
                   </div>
                 </div>
               );
