@@ -232,12 +232,31 @@ function CalendarPage() {
               if (!arg.view?.type?.startsWith('list')) {
                 return;
               }
+              const findListDayRow = (startRow) => {
+                let node = startRow;
+                while (node) {
+                  let prev = node.previousElementSibling;
+                  while (prev) {
+                    if (prev.classList?.contains('fc-list-day')) {
+                      return prev;
+                    }
+                    prev = prev.previousElementSibling;
+                  }
+                  node = node.parentElement;
+                }
+                return null;
+              };
+
               const eventRow = arg.el.closest('tr');
-              let listDayRow = eventRow?.previousElementSibling || null;
-              while (listDayRow && !listDayRow.classList.contains('fc-list-day')) {
-                listDayRow = listDayRow.previousElementSibling;
+              let listDayRow = findListDayRow(eventRow);
+              let listDate = null;
+              if (listDayRow) {
+                listDate = listDayRow.getAttribute('data-date');
+                if (!listDate) {
+                  const dateEl = listDayRow.querySelector('[data-date]');
+                  listDate = dateEl?.getAttribute('data-date') || null;
+                }
               }
-              let listDate = listDayRow?.getAttribute('data-date');
               if (!listDate) {
                 const dateEl = arg.el.closest('[data-date]');
                 listDate = dateEl?.getAttribute('data-date') || null;
@@ -262,7 +281,7 @@ function CalendarPage() {
               if (!listDayRow) {
                 listDayRow = arg.el.ownerDocument?.querySelector(`.fc-list-day[data-date="${listDate}"]`) || null;
               }
-              const listDayText = listDayRow?.querySelector('.fc-list-day-text');
+              const listDayText = listDayRow?.querySelector('.fc-list-day-text') || listDayRow?.querySelector('[data-date]');
               if (listDayText && depletionDate === listDate && !listDayText.querySelector('.js-depletion-list-badge')) {
                 const badge = document.createElement('span');
                 badge.className = 'js-depletion-list-badge';
