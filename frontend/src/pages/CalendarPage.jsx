@@ -208,11 +208,19 @@ function CalendarPage() {
               }
             }}
             listDayDidMount={(arg) => {
+              console.log('🟦 listDayDidMount called');
+              console.log('   arg.el:', arg.el);
+              console.log('   arg.el HTML:', arg.el?.outerHTML?.substring(0, 200));
+
               // Add depletion badge to list day header
               const dateStr = arg.date.toISOString().split('T')[0];
+              console.log('   Date:', dateStr);
+
               const depletingToday = events.filter(e => e.extendedProps.depletionDate === dateStr);
+              console.log('   Depleting today:', depletingToday.map(e => e.title));
 
               if (depletingToday.length === 0) {
+                console.log('   ❌ No medications depleting today');
                 return;
               }
 
@@ -222,8 +230,12 @@ function CalendarPage() {
                 || arg.el.querySelector('a')
                 || arg.el;
 
+              console.log('   Target element:', target?.tagName, target?.className);
+              console.log('   Target HTML:', target?.outerHTML?.substring(0, 200));
+
               // Check if badge already exists
               if (target.querySelector('.js-depletion-list-badge')) {
+                console.log('   ⚠️ Badge already exists');
                 return;
               }
 
@@ -239,6 +251,7 @@ function CalendarPage() {
 
               badge.style.cssText = 'margin-left: 8px; background: #dc2626; color: white; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap;';
               target.appendChild(badge);
+              console.log('   ✅ Badge added');
             }}
             dayCellDidMount={(arg) => {
               const dateStr = arg.date.toISOString().split('T')[0];
@@ -262,24 +275,49 @@ function CalendarPage() {
               }
             }}
             eventDidMount={(arg) => {
+              console.log('🟩 eventDidMount called for:', arg.event.title);
+              console.log('   View type:', arg.view?.type);
+
               // Only process list view events
               if (!arg.view?.type?.startsWith('list')) {
+                console.log('   ❌ Not list view, skipping');
                 return;
               }
 
+              console.log('   arg.el:', arg.el);
+              console.log('   arg.el HTML:', arg.el?.outerHTML?.substring(0, 300));
+
               // Find the list day row this event belongs to
               const eventRow = arg.el.closest('tr');
-              if (!eventRow) return;
+              console.log('   Event row:', eventRow);
+
+              if (!eventRow) {
+                console.log('   ❌ No event row found');
+                return;
+              }
 
               let listDayRow = eventRow.previousElementSibling;
+              let iterations = 0;
               while (listDayRow && !listDayRow.classList.contains('fc-list-day')) {
                 listDayRow = listDayRow.previousElementSibling;
+                iterations++;
+                if (iterations > 10) {
+                  console.log('   ❌ Too many iterations searching for list day row');
+                  break;
+                }
               }
+
+              console.log('   List day row:', listDayRow);
+              console.log('   List day row HTML:', listDayRow?.outerHTML?.substring(0, 200));
 
               const listDate = listDayRow?.getAttribute('data-date');
               const depletionDate = arg.event.extendedProps?.depletionDate;
 
+              console.log('   List date:', listDate);
+              console.log('   Depletion date:', depletionDate);
+
               if (!listDate || !depletionDate) {
+                console.log('   ❌ Missing date information');
                 return;
               }
 
@@ -289,12 +327,22 @@ function CalendarPage() {
               const depletionDayStart = new Date(`${depletionDate}T00:00:00`);
               const diffDays = Math.max(0, Math.round((depletionDayStart - listDayStart) / dayMs));
 
+              console.log('   Calculated diff days:', diffDays);
+
               // Update the remaining days text
               const target = arg.el.querySelector('.js-remaining-text');
+              console.log('   Target .js-remaining-text:', target);
+              console.log('   Target HTML:', target?.outerHTML);
+
               if (target) {
-                target.textContent = diffDays <= 0
+                const newText = diffDays <= 0
                   ? '⛔ LEER'
                   : `${diffDays} Tag${diffDays !== 1 ? 'e' : ''}`;
+                target.textContent = newText;
+                console.log('   ✅ Updated text to:', newText);
+              } else {
+                console.log('   ❌ Target .js-remaining-text not found in DOM');
+                console.log('   All elements with js-remaining-text:', document.querySelectorAll('.js-remaining-text'));
               }
             }}
             eventContent={(arg) => {
