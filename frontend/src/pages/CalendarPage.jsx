@@ -143,12 +143,12 @@ function CalendarPage() {
 
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
           <FullCalendar
-            plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+            plugins={[dayGridPlugin, listPlugin, interactionPlugin]}
             initialView="dayGridMonth"
             headerToolbar={{
               left: isMobile ? 'prev,next' : 'prev,next today',
               center: 'title',
-              right: isMobile ? '' : 'dayGridMonth,timeGridWeek,listMonth'
+              right: isMobile ? '' : 'dayGridMonth,listMonth'
             }}
             locale="de"
             buttonText={{
