@@ -229,24 +229,14 @@ function CalendarPage() {
               }
             }}
             eventDidMount={(arg) => {
-              console.log('🟩 eventDidMount called for:', arg.event.title);
-              console.log('   View type:', arg.view?.type);
-
               // Only process list view events
               if (!arg.view?.type?.startsWith('list')) {
-                console.log('   ❌ Not list view, skipping');
                 return;
               }
 
-              console.log('   arg.el:', arg.el);
-              console.log('   arg.el HTML:', arg.el?.outerHTML);
-
               // Find the title cell in the list view
               const titleCell = arg.el.querySelector('.fc-list-event-title');
-              console.log('   Title cell:', titleCell);
-
               if (!titleCell) {
-                console.log('   ❌ No title cell found');
                 return;
               }
 
@@ -257,19 +247,13 @@ function CalendarPage() {
               while (listDayRow && !listDayRow.classList.contains('fc-list-day')) {
                 listDayRow = listDayRow.previousElementSibling;
                 iterations++;
-                if (iterations > 10) {
-                  console.log('   ❌ Too many iterations');
-                  break;
-                }
+                if (iterations > 10) break;
               }
 
               const listDate = listDayRow?.getAttribute('data-date');
               const depletionDate = arg.event.extendedProps?.depletionDate;
 
-              console.log('   List date:', listDate, 'Depletion:', depletionDate);
-
               if (!listDate || !depletionDate) {
-                console.log('   ❌ Missing dates');
                 return;
               }
 
@@ -278,8 +262,6 @@ function CalendarPage() {
               const listDayStart = new Date(`${listDate}T00:00:00`);
               const depletionDayStart = new Date(`${depletionDate}T00:00:00`);
               const diffDays = Math.max(0, Math.round((depletionDayStart - listDayStart) / dayMs));
-
-              console.log('   Calculated diff days:', diffDays);
 
               // Create content with medication name and remaining days
               const content = document.createElement('div');
@@ -302,8 +284,6 @@ function CalendarPage() {
               }
               titleCell.appendChild(content);
 
-              console.log('   ✅ Content updated');
-
               // Add badge to list day header if this medication depletes today
               if (listDate === depletionDate && listDayRow) {
                 const dayHeader = listDayRow.querySelector('.fc-list-day-cushion');
@@ -313,7 +293,6 @@ function CalendarPage() {
                   badge.textContent = ` ⚠️ ${arg.event.title} leer`;
                   badge.style.cssText = 'margin-left: 8px; background: #dc2626; color: white; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap;';
                   dayHeader.appendChild(badge);
-                  console.log('   ✅ Badge added to day header');
                 }
               }
             }}
