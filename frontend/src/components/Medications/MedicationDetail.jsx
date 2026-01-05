@@ -18,11 +18,35 @@ function MedicationDetail({ medication, onAddPackage, onSetStock, onPhotoUpload,
       })
     : '–';
 
+  // Format interval display
+  const intervalDisplay = medication.interval_days === 1
+    ? 'Täglich'
+    : medication.interval_days === 7
+    ? 'Wöchentlich'
+    : medication.interval_days === 14
+    ? 'Alle 2 Wochen'
+    : medication.interval_days === 30
+    ? 'Monatlich'
+    : medication.interval_days === 90
+    ? 'Alle 3 Monate'
+    : `Alle ${medication.interval_days} Tage`;
+
+  // Format next due date
+  const nextDueDate = medication.next_due_at
+    ? new Date(medication.next_due_at).toLocaleDateString('de-DE', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })
+    : '–';
+
   const info = [
     { label: 'Dosierung morgens', value: medication.dosage_morning },
     { label: 'Dosierung mittags', value: medication.dosage_noon },
     { label: 'Dosierung abends', value: medication.dosage_evening },
-    { label: 'Täglicher Verbrauch', value: medication.daily_consumption },
+    { label: 'Einnahme-Intervall', value: intervalDisplay },
+    { label: 'Dosierung pro Einnahme', value: medication.dosage_per_interval },
+    { label: 'Nächste Einnahme', value: nextDueDate },
     { label: 'Warngrenze (Tage)', value: medication.warning_threshold_days },
     { label: 'Letzter Bestand gemessen', value: lastMeasuredDate }
   ];
@@ -108,7 +132,7 @@ function MedicationDetail({ medication, onAddPackage, onSetStock, onPhotoUpload,
             <p className="text-base font-semibold text-gray-900 sm:text-lg">{field.value ?? '–'}</p>
           </div>
         ))}
-        <div className={`rounded-2xl p-4 ${isOverdue ? 'bg-rose-50' : 'bg-blue-50'}`}>
+        <div className={`rounded-2xl p-4 sm:col-span-2 ${isOverdue ? 'bg-rose-50' : 'bg-blue-50'}`}>
           <p className={`text-xs uppercase tracking-wide ${isOverdue ? 'text-rose-400' : 'text-blue-400'}`}>
             {isOverdue ? 'Überfällig' : 'Verbleibende Tage'}
           </p>
@@ -119,6 +143,11 @@ function MedicationDetail({ medication, onAddPackage, onSetStock, onPhotoUpload,
                 ? daysRemaining.toFixed(1)
                 : 'Unbegrenzt'}
           </p>
+          {medication.interval_days > 1 && medication.intervals_remaining !== undefined && (
+            <p className="mt-2 text-xs text-gray-600">
+              = {medication.intervals_remaining.toFixed(1)} Einnahmen bei {intervalDisplay}
+            </p>
+          )}
         </div>
       </div>
     </div>

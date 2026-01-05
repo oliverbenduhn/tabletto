@@ -49,7 +49,10 @@ async function createMedication(req, res) {
     tablets_per_package: Number(req.body.tablets_per_package || 0),
     current_stock: Number(req.body.current_stock || 0),
     warning_threshold_days: Number(req.body.warning_threshold_days || 7),
-    photo_path: photoPath
+    photo_path: photoPath,
+    interval_days: Number(req.body.interval_days || 1),
+    dosage_per_interval: req.body.dosage_per_interval ? Number(req.body.dosage_per_interval) : undefined,
+    next_due_at: req.body.next_due_at || undefined
   };
 
   const errors = validateMedication(payload);
@@ -69,7 +72,7 @@ async function updateMedication(req, res) {
   }
 
   const payload = { ...req.body };
-  ['dosage_morning', 'dosage_noon', 'dosage_evening', 'tablets_per_package', 'current_stock', 'warning_threshold_days'].forEach(field => {
+  ['dosage_morning', 'dosage_noon', 'dosage_evening', 'tablets_per_package', 'current_stock', 'warning_threshold_days', 'interval_days', 'dosage_per_interval'].forEach(field => {
     if (payload[field] !== undefined) {
       payload[field] = Number(payload[field]);
     }

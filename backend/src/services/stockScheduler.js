@@ -5,17 +5,8 @@ const { createHistoryEntry } = require('../models/History');
 let schedulerTask = null;
 
 /**
- * Berechnet den täglichen Verbrauch für ein Medikament
- */
-function calculateConsumption(medication) {
-  // Täglicher Verbrauch
-  const dailyConsumption = medication.dosage_morning + medication.dosage_noon + medication.dosage_evening;
-
-  return dailyConsumption;
-}
-
-/**
  * Führt die automatische Bestandsreduktion für alle Medikamente durch
+ * Unterstützt sowohl tägliche als auch intervall-basierte Einnahmen
  */
 async function deductStockDaily() {
   console.log('Stock-Scheduler: Starte automatische Bestandsreduktion');
@@ -36,26 +27,42 @@ async function deductStockDaily() {
 
     for (const med of medications) {
       try {
-        // Berechne Verbrauch
-        const consumed = calculateConsumption(med);
+        const dosagePerInterval = med.dosage_per_interval || 0;
+        const intervalDays = med.interval_days || 1;
 
-        // Überspringe wenn kein Verbrauch (z.B. Dosierung = 0)
-        if (consumed === 0) {
+        // Überspringe wenn kein Verbrauch
+        if (dosagePerInterval === 0) {
+          skippedCount++;
+          continue;
+        }
+
+        // Prüfe ob das Medikament heute fällig ist
+        const nextDue = med.next_due_at ? new Date(med.next_due_at) : null;
+        const now = new Date();
+        now.setHours(0, 0, 0, 0); // Nur Datum vergleichen
+
+        // Wenn next_due_at nicht gesetzt oder in der Zukunft liegt, überspringe
+        if (!nextDue || nextDue > now) {
           skippedCount++;
           continue;
         }
 
         const oldStock = med.current_stock;
-        const newStock = Math.max(0, oldStock - consumed);
+        const newStock = Math.max(0, oldStock - dosagePerInterval);
 
-        // Update Bestand (Minimum: 0, kann nicht negativ werden)
+        // Berechne nächsten Termin
+        const newNextDue = new Date(nextDue);
+        newNextDue.setDate(newNextDue.getDate() + intervalDays);
+
+        // Update Bestand und nächsten Termin
         await db.run(
           `UPDATE medications
            SET current_stock = ?,
+               next_due_at = ?,
                last_stock_measured_at = CURRENT_TIMESTAMP,
                updated_at = CURRENT_TIMESTAMP
            WHERE id = ?`,
-          [newStock, med.id]
+          [newStock, newNextDue.toISOString(), med.id]
         );
 
         // Erstelle History-Eintrag
@@ -68,7 +75,7 @@ async function deductStockDaily() {
         });
 
         processedCount++;
-        console.log(`Stock-Scheduler: ${med.name} (ID: ${med.id}) - ${oldStock} → ${newStock} (${consumed} Tabletten reduziert)`);
+        console.log(`Stock-Scheduler: ${med.name} (ID: ${med.id}) - ${oldStock} → ${newStock} (${dosagePerInterval} reduziert, Intervall: ${intervalDays} Tage)`);
 
       } catch (error) {
         console.error(`Stock-Scheduler: Fehler bei Medikament ${med.id}:`, error);

@@ -8,7 +8,8 @@ const initialState = {
   dosage_noon: 0,
   dosage_evening: 0,
   current_stock: 0,
-  warning_threshold_days: 7
+  warning_threshold_days: 7,
+  interval_days: 1
 };
 
 const dosagePresets = [0.5, 1, 2];
@@ -27,7 +28,8 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
       [name]:
         name.includes('dosage') ||
         name.includes('stock') ||
-        name.includes('warning')
+        name.includes('warning') ||
+        name === 'interval_days'
           ? Number(value)
           : value
     }));
@@ -140,6 +142,36 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
           </button>
         ))}
       </div>
+      <div className="rounded-2xl border border-dashed border-purple-100 bg-purple-50/40 p-4">
+        <p className="text-sm font-medium text-gray-800">Einnahme-Intervall</p>
+        <p className="text-xs text-gray-500 mb-3">Wie oft wird das Medikament genommen?</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Intervall</label>
+            <select
+              name="interval_days"
+              value={form.interval_days}
+              onChange={handleChange}
+              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            >
+              <option value="1">Täglich</option>
+              <option value="2">Alle 2 Tage</option>
+              <option value="3">Alle 3 Tage</option>
+              <option value="7">Wöchentlich (7 Tage)</option>
+              <option value="14">Alle 2 Wochen (14 Tage)</option>
+              <option value="30">Monatlich (30 Tage)</option>
+              <option value="90">Alle 3 Monate (90 Tage)</option>
+            </select>
+          </div>
+          <div className="flex items-center text-xs text-gray-600">
+            {form.interval_days === 1 ? (
+              <span>✓ Dosierung wird täglich automatisch abgezogen</span>
+            ) : (
+              <span>✓ Dosierung wird alle {form.interval_days} Tage abgezogen</span>
+            )}
+          </div>
+        </div>
+      </div>
       <Input
         label="Aktueller Bestand"
         name="current_stock"
@@ -147,7 +179,7 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
         min="0"
         value={form.current_stock}
         onChange={handleChange}
-        helper="Wie viele Tabletten sind aktuell verfügbar?"
+        helper="Wie viele Tabletten/Dosen sind aktuell verfügbar?"
       />
       <Input
         label="Warngrenze (Tage)"

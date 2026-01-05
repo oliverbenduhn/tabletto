@@ -12,21 +12,33 @@ async function getById(id, userId) {
 
 async function createMedication(userId, data) {
   const db = getDatabase();
+
+  // Calculate dosage_per_interval and interval_days
+  const intervalDays = data.interval_days || 1;
+  const dosagePerInterval = data.dosage_per_interval ||
+    (data.dosage_morning || 0) + (data.dosage_noon || 0) + (data.dosage_evening || 0);
+
+  // Calculate next_due_at (tomorrow for daily, or custom date)
+  const nextDueAt = data.next_due_at || new Date(Date.now() + intervalDays * 24 * 60 * 60 * 1000).toISOString();
+
   const result = await db.run(
     `INSERT INTO medications (
       user_id, name, dosage_morning, dosage_noon, dosage_evening, tablets_per_package,
-      current_stock, warning_threshold_days, photo_path
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      current_stock, warning_threshold_days, photo_path, interval_days, dosage_per_interval, next_due_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       userId,
       data.name,
-      data.dosage_morning,
+      data.dosage_morning || 0,
       data.dosage_noon || 0,
-      data.dosage_evening,
+      data.dosage_evening || 0,
       data.tablets_per_package,
       data.current_stock,
       data.warning_threshold_days,
-      data.photo_path || null
+      data.photo_path || null,
+      intervalDays,
+      dosagePerInterval,
+      nextDueAt
     ]
   );
   return getById(result.lastID, userId);
@@ -44,7 +56,10 @@ async function updateMedication(id, userId, data) {
     'dosage_evening',
     'tablets_per_package',
     'current_stock',
-    'warning_threshold_days'
+    'warning_threshold_days',
+    'interval_days',
+    'dosage_per_interval',
+    'next_due_at'
   ];
 
   editableFields.forEach(field => {
@@ -53,6 +68,20 @@ async function updateMedication(id, userId, data) {
       values.push(data[field]);
     }
   });
+
+  // Auto-calculate dosage_per_interval if dosage fields changed
+  if (data.dosage_morning !== undefined || data.dosage_noon !== undefined || data.dosage_evening !== undefined) {
+    const current = await getById(id, userId);
+    const newMorning = data.dosage_morning !== undefined ? data.dosage_morning : current.dosage_morning;
+    const newNoon = data.dosage_noon !== undefined ? data.dosage_noon : current.dosage_noon;
+    const newEvening = data.dosage_evening !== undefined ? data.dosage_evening : current.dosage_evening;
+
+    const calculatedDosage = newMorning + newNoon + newEvening;
+    if (data.dosage_per_interval === undefined) {
+      fields.push('dosage_per_interval = ?');
+      values.push(calculatedDosage);
+    }
+  }
 
   if (!fields.length) {
     return getById(id, userId);

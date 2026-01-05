@@ -144,6 +144,47 @@ async function initDatabase() {
     // Don't fail initialization if migration fails
   }
 
+  // Migration: Add interval fields for unified interval system
+  try {
+    const tableInfo = await db.all("PRAGMA table_info(medications)");
+    const hasIntervalDays = tableInfo.some(col => col.name === 'interval_days');
+    const hasDosagePerInterval = tableInfo.some(col => col.name === 'dosage_per_interval');
+    const hasNextDueAt = tableInfo.some(col => col.name === 'next_due_at');
+
+    if (!hasIntervalDays) {
+      console.log('Führe Migration aus: Füge interval_days Spalte hinzu');
+      await db.run(`ALTER TABLE medications ADD COLUMN interval_days INTEGER DEFAULT 1`);
+      console.log('Migration interval_days erfolgreich abgeschlossen');
+    }
+
+    if (!hasDosagePerInterval) {
+      console.log('Führe Migration aus: Füge dosage_per_interval Spalte hinzu');
+      await db.run(`ALTER TABLE medications ADD COLUMN dosage_per_interval REAL DEFAULT 0`);
+      // Migrate existing medications: dosage_per_interval = sum of daily dosages
+      await db.run(`
+        UPDATE medications
+        SET dosage_per_interval = dosage_morning + dosage_noon + dosage_evening
+        WHERE dosage_per_interval = 0
+      `);
+      console.log('Migration dosage_per_interval erfolgreich abgeschlossen');
+    }
+
+    if (!hasNextDueAt) {
+      console.log('Führe Migration aus: Füge next_due_at Spalte hinzu');
+      await db.run(`ALTER TABLE medications ADD COLUMN next_due_at DATETIME`);
+      // Set next_due_at to tomorrow for existing daily medications
+      await db.run(`
+        UPDATE medications
+        SET next_due_at = datetime('now', '+1 day', 'start of day')
+        WHERE next_due_at IS NULL AND interval_days = 1
+      `);
+      console.log('Migration next_due_at erfolgreich abgeschlossen');
+    }
+  } catch (error) {
+    console.error('Fehler bei der Migration (interval fields):', error);
+    // Don't fail initialization if migration fails
+  }
+
   console.log('Datenbank initialisiert');
   return db;
 }
