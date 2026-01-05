@@ -185,6 +185,35 @@ async function initDatabase() {
     // Don't fail initialization if migration fails
   }
 
+  // Migration: Add dose time preferences
+  try {
+    const userTableInfo = await db.all("PRAGMA table_info(users)");
+    const hasDoseTimeMorning = userTableInfo.some(col => col.name === 'dose_time_morning');
+    const hasDoseTimeNoon = userTableInfo.some(col => col.name === 'dose_time_noon');
+    const hasDoseTimeEvening = userTableInfo.some(col => col.name === 'dose_time_evening');
+
+    if (!hasDoseTimeMorning) {
+      console.log('Führe Migration aus: Füge dose_time_morning Spalte hinzu');
+      await db.run(`ALTER TABLE users ADD COLUMN dose_time_morning TEXT DEFAULT '08:00'`);
+      console.log('Migration dose_time_morning erfolgreich abgeschlossen');
+    }
+
+    if (!hasDoseTimeNoon) {
+      console.log('Führe Migration aus: Füge dose_time_noon Spalte hinzu');
+      await db.run(`ALTER TABLE users ADD COLUMN dose_time_noon TEXT DEFAULT '12:00'`);
+      console.log('Migration dose_time_noon erfolgreich abgeschlossen');
+    }
+
+    if (!hasDoseTimeEvening) {
+      console.log('Führe Migration aus: Füge dose_time_evening Spalte hinzu');
+      await db.run(`ALTER TABLE users ADD COLUMN dose_time_evening TEXT DEFAULT '20:00'`);
+      console.log('Migration dose_time_evening erfolgreich abgeschlossen');
+    }
+  } catch (error) {
+    console.error('Fehler bei der Migration (dose times):', error);
+    // Don't fail initialization if migration fails
+  }
+
   console.log('Datenbank initialisiert');
   return db;
 }

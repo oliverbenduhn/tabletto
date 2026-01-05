@@ -4,6 +4,7 @@ const { validatePassword } = require('../utils/validation');
 
 const ALLOWED_DASHBOARD_VIEWS = new Set(['grid', 'list']);
 const ALLOWED_CALENDAR_VIEWS = new Set(['dayGridMonth', 'listMonth']);
+const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 async function getProfile(req, res) {
   const user = await findById(req.user.id);
@@ -40,16 +41,11 @@ async function getUserPreferences(req, res) {
   if (!preferences) {
     return res.status(404).json({ error: 'Benutzer nicht gefunden' });
   }
-  res.json({
-    preferences: {
-      dashboardView: preferences.dashboard_view || 'grid',
-      calendarView: preferences.calendar_view || 'dayGridMonth'
-    }
-  });
+  res.json({ preferences });
 }
 
 async function updateUserPreferences(req, res) {
-  const { dashboardView, calendarView } = req.body || {};
+  const { dashboardView, calendarView, dose_times } = req.body || {};
   const updates = {};
 
   if (dashboardView !== undefined) {
@@ -66,17 +62,25 @@ async function updateUserPreferences(req, res) {
     updates.calendarView = calendarView;
   }
 
+  if (dose_times !== undefined) {
+    if (dose_times.morning && !TIME_REGEX.test(dose_times.morning)) {
+      return res.status(400).json({ error: 'Ungültiges Format für dose_time_morning (HH:MM)' });
+    }
+    if (dose_times.noon && !TIME_REGEX.test(dose_times.noon)) {
+      return res.status(400).json({ error: 'Ungültiges Format für dose_time_noon (HH:MM)' });
+    }
+    if (dose_times.evening && !TIME_REGEX.test(dose_times.evening)) {
+      return res.status(400).json({ error: 'Ungültiges Format für dose_time_evening (HH:MM)' });
+    }
+    updates.dose_times = dose_times;
+  }
+
   const preferences = await updatePreferences(req.user.id, updates);
   if (!preferences) {
     return res.status(404).json({ error: 'Benutzer nicht gefunden' });
   }
 
-  res.json({
-    preferences: {
-      dashboardView: preferences.dashboard_view || 'grid',
-      calendarView: preferences.calendar_view || 'dayGridMonth'
-    }
-  });
+  res.json({ preferences });
 }
 
 module.exports = { getProfile, changePassword, getUserPreferences, updateUserPreferences };

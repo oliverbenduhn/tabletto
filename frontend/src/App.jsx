@@ -4,6 +4,7 @@ import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import CalendarPage from './pages/CalendarPage';
 import MedicationDetailPage from './pages/MedicationDetailPage';
+import SettingsPage from './pages/SettingsPage';
 import PrivateRoute from './components/Layout/PrivateRoute';
 
 function App() {
@@ -33,6 +34,14 @@ function App() {
           element={
             <PrivateRoute>
               <MedicationDetailPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <PrivateRoute>
+              <SettingsPage />
             </PrivateRoute>
           }
         />
