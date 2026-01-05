@@ -7,6 +7,7 @@ function MedicationDetail({ medication, onAddPackage, onSetStock, onPhotoUpload,
 
   const daysRemaining = Number.isFinite(medication.days_remaining) ? medication.days_remaining : null;
   const isOverdue = daysRemaining !== null && daysRemaining < 0;
+  const isOutOfStock = medication.current_stock === 0;
 
   // Format last measured timestamp
   const lastMeasuredDate = medication.last_stock_measured_at
@@ -34,13 +35,23 @@ function MedicationDetail({ medication, onAddPackage, onSetStock, onPhotoUpload,
           <h1 className="text-2xl font-semibold text-gray-900 sm:text-3xl">{medication.name}</h1>
           <p className="text-sm text-gray-500">
             Aktueller Bestand:{' '}
-            <span className={`font-semibold ${medication.current_stock < 0 ? 'text-rose-600' : 'text-gray-900'}`}>
+            <span className={`font-semibold ${isOutOfStock ? 'text-rose-600' : 'text-gray-900'}`}>
               {medication.current_stock}
             </span>
-            {medication.current_stock < 0 && (
-              <span className="ml-1 text-xs text-rose-600">(Nachschub erforderlich)</span>
-            )}
           </p>
+          {isOutOfStock && (
+            <div className="mt-2 rounded-lg bg-rose-50 border border-rose-200 p-3">
+              <p className="text-sm font-semibold text-rose-800">⚠️ Aufgebraucht!</p>
+              <p className="text-xs text-rose-600 mt-1">
+                Letzte Messung: {lastMeasuredDate}
+              </p>
+              {medication.daily_consumption > 0 && (
+                <p className="text-xs text-rose-600">
+                  Basierend auf deiner Dosierung ({medication.daily_consumption} Tabletten/Tag) wurden bereits weitere Tabletten benötigt.
+                </p>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
           <Button onClick={onAddPackage} className="w-full sm:w-auto">Packung hinzufügen</Button>

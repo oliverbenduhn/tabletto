@@ -116,12 +116,12 @@ async function updateStock(req, res) {
     if (packageSize === null || packageSize <= 0) {
       return res.status(400).json({ error: 'Packungsgröße muss größer als 0 sein' });
     }
-    newStock = medication.current_stock + packageSize;
+    newStock = Math.max(0, medication.current_stock + packageSize);
   } else if (action === 'set_stock') {
     if (typeof amount !== 'number' || amount < 0) {
       return res.status(400).json({ error: 'Ungültiger Bestand' });
     }
-    newStock = amount;
+    newStock = Math.max(0, amount);
   } else {
     return res.status(400).json({ error: 'Unbekannte Aktion' });
   }

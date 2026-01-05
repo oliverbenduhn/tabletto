@@ -46,9 +46,9 @@ async function deductStockDaily() {
         }
 
         const oldStock = med.current_stock;
-        const newStock = oldStock - consumed;
+        const newStock = Math.max(0, oldStock - consumed);
 
-        // Update Bestand (kann negativ werden)
+        // Update Bestand (Minimum: 0, kann nicht negativ werden)
         await db.run(
           `UPDATE medications
            SET current_stock = ?,
