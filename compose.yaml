@@ -15,7 +15,7 @@ services:
       - PORT=3000
       - DB_PATH=/app/data/tabletto.db
       - ENABLE_STOCK_SCHEDULER=${ENABLE_STOCK_SCHEDULER:-true}
-      - STOCK_SCHEDULER_CRON=${STOCK_SCHEDULER_CRON:-0 2 * * *}
+      - STOCK_SCHEDULER_CRON=${STOCK_SCHEDULER_CRON:-*/5 * * * *}
       - UPLOADS_PATH=${UPLOADS_PATH:-/app/data/uploads}
       - TZ=${TZ:-Europe/Berlin}
     env_file:
