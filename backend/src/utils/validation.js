@@ -42,7 +42,47 @@ function validateMedication(data) {
     errors.push('Warngrenze muss zwischen 1 und 30 Tagen liegen');
   }
 
+  // Validate next_due_at if provided
+  if (data.next_due_at !== undefined && data.next_due_at !== null) {
+    const dateError = validateNextDueAt(data.next_due_at);
+    if (dateError) {
+      errors.push(dateError);
+    }
+  }
+
   return errors;
 }
 
-module.exports = { validateEmail, validatePassword, validateMedication };
+function validateNextDueAt(dateString) {
+  if (!dateString) {
+    return null; // Optional field
+  }
+
+  const date = new Date(dateString);
+
+  // Check if valid date
+  if (isNaN(date.getTime())) {
+    return 'Nächste Einnahme muss ein gültiges Datum sein';
+  }
+
+  // Check if date is not too far in the past (allow up to 24 hours in the past for timezone tolerance)
+  const yesterday = new Date();
+  yesterday.setHours(0, 0, 0, 0);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  if (date < yesterday) {
+    return 'Nächste Einnahme darf nicht in der Vergangenheit liegen';
+  }
+
+  // Check if date is not too far in the future (e.g., max 2 years)
+  const maxDate = new Date();
+  maxDate.setFullYear(maxDate.getFullYear() + 2);
+
+  if (date > maxDate) {
+    return 'Nächste Einnahme darf nicht mehr als 2 Jahre in der Zukunft liegen';
+  }
+
+  return null;
+}
+
+module.exports = { validateEmail, validatePassword, validateMedication, validateNextDueAt };

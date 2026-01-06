@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Header from '../components/Layout/Header';
 import MedicationDetail from '../components/Medications/MedicationDetail';
+import MedicationForm from '../components/Medications/MedicationForm';
+import Modal from '../components/Common/Modal';
 import Button from '../components/Common/Button';
 import { formatDate } from '../utils/dateFormatter';
 import api from '../services/api';
@@ -13,6 +15,8 @@ function MedicationDetailPage() {
   const [history, setHistory] = useState([]);
   const [error, setError] = useState('');
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const fetchMedication = async () => {
     setError('');
@@ -102,6 +106,20 @@ function MedicationDetailPage() {
     }
   };
 
+  const handleUpdate = async data => {
+    setIsUpdating(true);
+    setError('');
+    try {
+      await api.updateMedication(id, data);
+      await fetchMedication();
+      setIsEditModalOpen(false);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-transparent">
       <Header />
@@ -109,6 +127,9 @@ function MedicationDetailPage() {
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="ghost" onClick={() => navigate(-1)} className="w-full sm:w-auto">
             ← Zurück
+          </Button>
+          <Button variant="secondary" onClick={() => setIsEditModalOpen(true)} className="w-full sm:w-auto">
+            Medikament bearbeiten
           </Button>
           <Button variant="secondary" onClick={handleDelete} className="w-full sm:w-auto">
             Medikament löschen
@@ -149,6 +170,19 @@ function MedicationDetailPage() {
             {!history.length && <p className="text-sm text-gray-500">Keine Historie vorhanden.</p>}
           </ul>
         </div>
+        <Modal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          title="Medikament bearbeiten"
+        >
+          <MedicationForm
+            initialData={medication}
+            isEditMode={true}
+            onSubmit={handleUpdate}
+            isSubmitting={isUpdating}
+            onSuccess={() => setIsEditModalOpen(false)}
+          />
+        </Modal>
       </main>
     </div>
   );
