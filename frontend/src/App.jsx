@@ -50,7 +50,7 @@ function App() {
     </BrowserRouter>
     <footer className="legal-footer">
       <a href="https://legal.benduhn.de/impressum/" target="_blank" rel="noopener">Impressum</a>
-      {" · "}
+      &middot;
       <a href="https://legal.benduhn.de/datenschutz/" target="_blank" rel="noopener">Datenschutz</a>
     </footer>
   );
