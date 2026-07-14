@@ -48,11 +48,7 @@ function App() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
-    <footer style={{
-      textAlign: "center", padding: "1rem",
-      fontSize: "0.8rem", color: "#6b7280",
-      borderTop: "1px solid #e5e7eb", marginTop: "2rem",
-    }}>
+    <footer className="legal-footer">
       <a href="https://legal.benduhn.de/impressum/" target="_blank" rel="noopener">Impressum</a>
       {" · "}
       <a href="https://legal.benduhn.de/datenschutz/" target="_blank" rel="noopener">Datenschutz</a>
