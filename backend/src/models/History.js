@@ -1,12 +1,12 @@
-const { getDatabase } = require('../config/database');
+const { getDatabase, enqueueWrite } = require('../config/database');
 
 async function createHistoryEntry({ medicationId, userId, action, oldStock, newStock }) {
-  const db = getDatabase();
-  const result = await db.run(
+  const result = await enqueueWrite(db => db.run(
     `INSERT INTO history (medication_id, user_id, action, old_stock, new_stock)
      VALUES (?, ?, ?, ?, ?)`,
     [medicationId, userId, action, oldStock, newStock]
-  );
+  ));
+  const db = getDatabase();
   return db.get('SELECT * FROM history WHERE id = ?', [result.lastID]);
 }
 

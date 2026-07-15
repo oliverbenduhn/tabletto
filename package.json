@@ -3,6 +3,9 @@
   "version": "1.5.0",
   "description": "Tabletto - Medikamentenverwaltung",
   "private": true,
+  "engines": {
+    "node": ">=20.17.0"
+  },
   "scripts": {
     "install:backend": "cd backend && npm install",
     "install:frontend": "cd frontend && npm install",
@@ -11,7 +14,10 @@
     "dev:frontend": "cd frontend && npm run dev",
     "build:frontend": "cd frontend && npm run build",
     "start": "cd backend && npm start",
-    "version:sync": "node scripts/sync-version.js"
+    "version:sync": "node scripts/sync-version.js",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report"
   },
   "repository": {
     "type": "git",
@@ -25,5 +31,8 @@
     "tracking"
   ],
   "author": "Oliver Benduhn",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.61.1"
+  }
 }

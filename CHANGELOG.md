@@ -5,6 +5,39 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/).
 
+## [Unreleased]
+
+### Sicherheit und Zuverlässigkeit
+
+- Produktionsstart ohne echtes `JWT_SECRET` unterbunden und Security-Header ergänzt
+- private PWA-API-Caches entfernt und Alt-Caches beim Logout bereinigt
+- Uploads auf geprüfte Bildsignaturen, Root-Containment und signierte Kurzzeit-URLs gehärtet
+- Bestandsänderungen und History transaktional serialisiert
+- Scheduler mit dauerhaften Idempotenzmarkern, Zeitzonenlogik und Catch-up abgesichert
+- Import/Export 2.0 mit vollständiger Vorvalidierung, Intervallfeldern und Rollback repariert
+- konsistentes SQLite-Online-Backup inklusive Uploads umgesetzt
+- Containerstart durch reproduzierbaren nativen SQLite-Build, normalisierte
+  Leserechte und entfallenes rekursives Laufzeit-`chown` repariert
+
+### UI und Qualität
+
+- Intervallformular, irreversible Importbestätigung, Sessionablauf und Tastaturnavigation verbessert
+- Kalender auf einzelne prognostizierte Leerstandsereignisse und einheitliche Statusbegriffe umgestellt
+- deutsche History-Bezeichnungen, 404-Seite und lokale Systemschriften ergänzt
+- Backend-, Migrations-, API-, Mandanten-, Upload- und Scheduler-Tests sowie verpflichtende CI ergänzt
+- Laufzeitbasis und Abhängigkeiten auf Node.js 22, Express 5 und sichere Paketstände aktualisiert
+
+### Dokumentation
+
+- Dual-Target-Dokumentation für Entwickler und KI-Agenten neu strukturiert
+- kompakten Projekteinstieg und versioniertes Wiki für Architektur, Datenmodell,
+  API, Entwicklung, Betrieb, Tests und Sicherheit ergänzt
+- kanonisches `AGENTS.md` sowie Adapter für Claude und Cursor hinzugefügt
+- Installations-, Komodo- und Release-Anleitungen mit dem aktuellen Codezustand
+  abgeglichen
+- zuvor dokumentierte Einschränkungen bei Import/Export, Health, Scheduler,
+  Backup, PWA-Cache und CI behoben und Dokumentation synchronisiert
+
 ## [1.5.0] - 2026-03-28
 
 ### Geändert

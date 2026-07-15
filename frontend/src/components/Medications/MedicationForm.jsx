@@ -7,6 +7,8 @@ const initialState = {
   dosage_morning: 0,
   dosage_noon: 0,
   dosage_evening: 0,
+  dosage_per_interval: 0,
+  tablets_per_package: 0,
   current_stock: 0,
   warning_threshold_days: 7,
   interval_days: 1,
@@ -14,6 +16,13 @@ const initialState = {
 };
 
 const dosagePresets = [0.5, 1, 2];
+
+function localDateString(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitting, onSuccess, initialData = null, isEditMode = false }, ref) {
   const [form, setForm] = useState(initialState);
@@ -25,13 +34,21 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
   const handleChange = e => {
     const { name, value } = e.target;
 
-    // Special handling for interval_days: clear next_due_at when switching to daily
-    if (name === 'interval_days' && Number(value) === 1) {
-      setForm(prev => ({
-        ...prev,
-        interval_days: 1,
-        next_due_at: ''
-      }));
+    if (name === 'interval_days') {
+      const intervalDays = Number(value);
+      setForm(prev => {
+        if (intervalDays === 1) {
+          return { ...prev, interval_days: 1, next_due_at: '' };
+        }
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + intervalDays);
+        return {
+          ...prev,
+          interval_days: intervalDays,
+          dosage_per_interval: prev.dosage_per_interval || prev.dosage_morning + prev.dosage_noon + prev.dosage_evening,
+          next_due_at: prev.next_due_at || localDateString(dueDate)
+        };
+      });
       return;
     }
 
@@ -60,6 +77,10 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
     }
 
     // Validate next_due_at for interval medications
+    if (form.interval_days > 1 && !form.next_due_at) {
+      setError('Nächste Einnahme ist erforderlich');
+      return;
+    }
     if (form.interval_days > 1 && form.next_due_at) {
       const selectedDate = new Date(form.next_due_at);
       const today = new Date();
@@ -74,8 +95,11 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
     // Submit with next_due_at as ISO string (or null for daily meds)
     const submitData = {
       ...form,
+      dosage_per_interval: form.interval_days === 1
+        ? form.dosage_morning + form.dosage_noon + form.dosage_evening
+        : form.dosage_per_interval,
       next_due_at: form.interval_days > 1 && form.next_due_at
-        ? new Date(form.next_due_at).toISOString()
+        ? `${form.next_due_at}T12:00:00`
         : null
     };
 
@@ -116,7 +140,7 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
     if (initialData && isEditMode) {
       // Convert next_due_at from ISO to YYYY-MM-DD format for date input
       const nextDueDate = initialData.next_due_at
-        ? new Date(initialData.next_due_at).toISOString().split('T')[0]
+        ? String(initialData.next_due_at).slice(0, 10)
         : '';
 
       setForm({
@@ -124,6 +148,8 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
         dosage_morning: initialData.dosage_morning || 0,
         dosage_noon: initialData.dosage_noon || 0,
         dosage_evening: initialData.dosage_evening || 0,
+        dosage_per_interval: initialData.dosage_per_interval || 0,
+        tablets_per_package: initialData.tablets_per_package || 0,
         current_stock: initialData.current_stock || 0,
         warning_threshold_days: initialData.warning_threshold_days || 7,
         interval_days: initialData.interval_days || 1,
@@ -131,16 +157,6 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
       });
     }
   }, [initialData, isEditMode]);
-
-  // Auto-calculate next_due_at when interval_days changes (only for new medications)
-  useEffect(() => {
-    if (!isEditMode && form.interval_days > 1 && !form.next_due_at) {
-      const futureDate = new Date();
-      futureDate.setDate(futureDate.getDate() + form.interval_days);
-      const dateString = futureDate.toISOString().split('T')[0];
-      setForm(prev => ({ ...prev, next_due_at: dateString }));
-    }
-  }, [form.interval_days, isEditMode, form.next_due_at]);
 
   useEffect(() => {
     return () => {
@@ -169,7 +185,7 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
         placeholder="z. B. Ibuprofen 600"
         required
       />
-      <div className="grid gap-4 sm:grid-cols-3">
+      {form.interval_days === 1 && <div className="grid gap-4 sm:grid-cols-3">
         <Input
           label="Dosierung morgens"
           name="dosage_morning"
@@ -197,20 +213,20 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
           value={form.dosage_evening}
           onChange={handleChange}
         />
-      </div>
-      <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+      </div>}
+      {form.interval_days === 1 && <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
         <span className="font-semibold text-gray-600">Schnellwahl:</span>
         {dosagePresets.map(preset => (
           <button
             type="button"
             key={preset}
             onClick={() => applyPreset(preset)}
-            className="rounded-full border border-blue-100 px-3 py-1 text-blue-600 transition hover:bg-blue-50"
+            className="min-h-11 rounded-full border border-blue-100 px-3 py-2 text-blue-600 transition hover:bg-blue-50"
           >
             {preset} Tabletten
           </button>
         ))}
-      </div>
+      </div>}
       <div className="rounded-2xl border border-dashed border-purple-100 bg-purple-50/40 p-4">
         <p className="text-sm font-medium text-gray-800">Einnahme-Intervall</p>
         <p className="text-xs text-gray-500 mb-3">Wie oft wird das Medikament genommen?</p>
@@ -221,7 +237,7 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
               name="interval_days"
               value={form.interval_days}
               onChange={handleChange}
-              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              className="min-h-11 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             >
               <option value="1">Täglich</option>
               <option value="2">Alle 2 Tage</option>
@@ -242,6 +258,17 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
         </div>
         {form.interval_days > 1 && (
           <div className="mt-3 rounded-xl border border-purple-200 bg-white p-3">
+            <Input
+              label="Dosierung pro Einnahme"
+              name="dosage_per_interval"
+              type="number"
+              min="0"
+              max="30"
+              step="0.5"
+              value={form.dosage_per_interval}
+              onChange={handleChange}
+              required
+            />
             <label className="block text-xs font-medium text-gray-700 mb-1">
               Nächste Einnahme
             </label>
@@ -250,8 +277,9 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
               name="next_due_at"
               value={form.next_due_at}
               onChange={handleChange}
-              min={new Date().toISOString().split('T')[0]}
-              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+              min={localDateString()}
+              required
+              className="min-h-11 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
             />
             <p className="mt-1 text-xs text-gray-500">
               Das Datum, an dem die nächste Einnahme fällig ist. Der Bestand wird automatisch am fälligen Datum reduziert.
@@ -260,6 +288,17 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
         )}
       </div>
       <Input
+        label="Tabletten/Dosen pro Packung"
+        name="tablets_per_package"
+        type="number"
+        min="0"
+        max="1000"
+        step="1"
+        value={form.tablets_per_package}
+        onChange={handleChange}
+        helper="Wird als Standardmenge beim Hinzufügen einer Packung verwendet."
+      />
+      {!isEditMode && <Input
         label="Aktueller Bestand"
         name="current_stock"
         type="number"
@@ -267,7 +306,7 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
         value={form.current_stock}
         onChange={handleChange}
         helper="Wie viele Tabletten/Dosen sind aktuell verfügbar?"
-      />
+      />}
       <Input
         label="Warngrenze (Tage)"
         name="warning_threshold_days"
@@ -278,7 +317,7 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
         onChange={handleChange}
         helper="Wir benachrichtigen dich, wenn der Bestand unter diese Grenze fällt."
       />
-      <div className="rounded-2xl border border-dashed border-blue-100 bg-blue-50/40 p-4">
+      {!isEditMode && <div className="rounded-2xl border border-dashed border-blue-100 bg-blue-50/40 p-4">
         <p className="text-sm font-medium text-gray-800">Foto</p>
         <p className="text-xs text-gray-500">Optional: Bild der Packung hochladen (max. 5 MB).</p>
         <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -287,7 +326,7 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
             type="file"
             accept="image/*"
             onChange={handlePhotoChange}
-            className="text-sm text-gray-600 file:mr-4 file:rounded-full file:border-0 file:bg-blue-100 file:px-4 file:py-2 file:text-xs file:font-semibold file:text-blue-700 hover:file:bg-blue-200"
+            className="min-h-11 text-sm text-gray-600 file:mr-4 file:min-h-11 file:rounded-full file:border-0 file:bg-blue-100 file:px-4 file:py-2 file:text-xs file:font-semibold file:text-blue-700 hover:file:bg-blue-200"
           />
           {photoPreview && (
             <img
@@ -297,9 +336,10 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
             />
           )}
         </div>
-      </div>
+      </div>}
       {error && <p className="rounded-md bg-rose-50 p-3 text-sm text-rose-600">{error}</p>}
-      <Button type="submit" disabled={isSubmitting} className="justify-center">
+      <div className="sticky bottom-0 z-10 -mx-4 -mb-24 mt-2 border-t border-gray-100 bg-white/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur sm:static sm:m-0 sm:border-0 sm:bg-transparent sm:p-0">
+      <Button type="submit" disabled={isSubmitting} className="w-full justify-center">
         {isSubmitting ? (
           <span className="flex items-center gap-2">
             <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
@@ -309,6 +349,7 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
           'Speichern'
         )}
       </Button>
+      </div>
     </form>
   );
 });

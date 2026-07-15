@@ -1,231 +1,130 @@
-# Tabletto auf GitHub veröffentlichen
+# Releases veröffentlichen
 
-Diese Anleitung zeigt dir, wie du Tabletto auf GitHub veröffentlichst, damit andere es einfach installieren können.
+Tabletto verwendet Semantic Versioning, Git-Tags `vMAJOR.MINOR.PATCH` und den
+GitHub-Workflow `.github/workflows/release.yml`.
 
-## Schritt 1: GitHub Repository erstellen
+## Voraussetzungen
 
-### Option A: Via GitHub Website (einfacher)
+- sauberer, geprüfter Release-Commit auf `main`
+- Schreibrecht für Repository und Tags
+- GitHub Actions aktiviert
+- aktualisiertes `CHANGELOG.md`
+- erfolgreiches Frontend- und Docker-Build
+- vollständiges Backup und Migrationshinweise bei Schemaänderungen
 
-1. Gehe zu <https://github.com/new>
-2. Erstelle ein neues Repository:
-   - **Repository name**: `tabletto`
-   - **Description**: `Webbasierte Medikamentenverwaltung mit Bestandsverfolgung`
-   - **Visibility**: ✅ Public (damit andere es nutzen können)
-   - **❌ NICHT** "Initialize this repository with" - Optionen auswählen (wir haben bereits Code)
-3. Klicke auf "Create repository"
+## Versionsquellen
 
-### Option B: Via GitHub CLI (gh)
-
-```bash
-# GitHub CLI installiert? Prüfe mit:
-gh --version
-
-# Repository erstellen
-gh repo create tabletto --public --description "Webbasierte Medikamentenverwaltung mit Bestandsverfolgung"
-```
-
-## Schritt 2: Lokales Repository mit GitHub verbinden
-
-Nach dem Erstellen des GitHub-Repos zeigt GitHub dir Befehle. Verwende diese:
+Die beabsichtigte kanonische Version steht in `package.json`. Synchronisiert
+werden:
 
 ```bash
-# Falls noch kein Git-Repository initialisiert
-git init
-git add .
-git commit -m "Initial commit"
-git branch -M main
-
-# Remote hinzufügen (ersetze USERNAME mit deinem GitHub-Benutzernamen)
-git remote add origin https://github.com/USERNAME/tabletto.git
-
-# Oder mit SSH (empfohlen wenn SSH-Keys eingerichtet sind):
-git remote add origin git@github.com:USERNAME/tabletto.git
-
-# Code hochladen
-git push -u origin main
+npm run version:sync
 ```
 
-## Schritt 3: Neue Dateien committen
+Das Skript aktualisiert:
 
-Die neu erstellten Dateien müssen noch committed werden:
+- `backend/package.json`
+- `frontend/package.json`
+
+Zusätzlich manuell prüfen:
+
+- beide Lockfiles der Teilprojekte
+- Root-Lockfile
+- Docker-Label in `Dockerfile`
+- `CHANGELOG.md`
+- Exportformatversion in `dataController.js`, falls das Format geändert wurde
+
+Die UI liest die Frontend-Paketversion beim Build. Ein alter Kommentar im
+Versionsskript erwähnt einen direkten Header-String; maßgeblich ist der aktuelle
+Headercode.
+
+## Release-Checkliste
+
+1. Zielversion und Breaking-Change-Charakter bestimmen.
+2. Version in `package.json` ändern.
+3. `npm run version:sync` ausführen.
+4. Lockfiles mit dem vorgesehenen npm aktualisieren.
+5. `CHANGELOG.md` mit Datum und konkreten Änderungen ergänzen.
+6. Dokumentation und bekannte Einschränkungen synchronisieren.
+7. Prüfungen ausführen.
+8. Release-Commit erstellen und nach `main` bringen.
+9. signierten oder annotierten Tag setzen und pushen.
+10. GitHub-Workflow und erzeugtes Release prüfen.
+
+## Prüfungen
 
 ```bash
-# Neue Dateien hinzufügen
-git add INSTALL.md docker-compose.prod.yml README.md .gitignore
-
-# Commit erstellen
-git commit -m "Add installation guide and production docker-compose"
-
-# Pushen
-git push
+npm ci
+npm ci --prefix backend
+npm ci --prefix frontend
+npm run build:frontend
+npm run test:e2e
+docker build -t tabletto:release-candidate .
 ```
 
-## Schritt 4: Repository-Beschreibung anpassen (optional)
+Zusätzlich einen Container mit temporärem Volume starten und mindestens Login,
+Persistenz, Uploads und – nach Korrektur der bekannten Route – den JSON-Health
+Check prüfen.
 
-Auf GitHub im Repository:
-1. Gehe zu "Settings"
-2. Füge "Topics" hinzu: `medication`, `docker`, `nodejs`, `react`, `sqlite`
-3. Setze die Website-URL (falls deployed)
+Bei Schemaänderungen außerdem:
 
-## ✅ Fertig! Andere können jetzt installieren mit:
+- frische Datenbank initialisieren,
+- repräsentative Vorversion migrieren,
+- Daten und Foreign Keys prüfen,
+- Rollback-/Restore-Verfahren dokumentieren.
+
+## Commit und Tag
+
+Beispiel für Version `1.6.0`:
 
 ```bash
-git clone https://github.com/USERNAME/tabletto.git
-cd tabletto
-cp .env.example .env
-# .env bearbeiten und JWT_SECRET setzen
-docker compose up -d
+git add package.json package-lock.json \
+  backend/package.json backend/package-lock.json \
+  frontend/package.json frontend/package-lock.json \
+  Dockerfile CHANGELOG.md
+git commit -m "chore: release 1.6.0"
+git tag -a v1.6.0 -m "Tabletto 1.6.0"
+git push origin main
+git push origin v1.6.0
 ```
 
-## Zusätzliche Empfehlungen
+Vor `git add` den tatsächlichen Diff prüfen und keine fremden Änderungen oder
+lokalen Daten versehentlich aufnehmen.
 
-### 1. GitHub Actions für CI/CD (optional)
+## GitHub-Release-Workflow
 
-Erstelle `.github/workflows/docker-build.yml`:
+Ein Tag passend zu `v*.*.*` startet den Workflow:
 
-```yaml
-name: Docker Build
+1. Checkout
+2. Versionsableitung aus dem Tag
+3. Node.js 18
+4. Backend- und Frontendinstallation
+5. Frontend-Build
+6. lokaler Docker-Image-Build
+7. GitHub Release mit automatisch erzeugten Notes
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+Der Workflow veröffentlicht das gebaute Docker-Image nicht in eine Registry und
+führt derzeit keine Playwright-Tests aus. Diese Prüfungen müssen vor dem Tag
+erfolgreich gelaufen sein.
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
+## Release verifizieren
 
-    - name: Build Docker image
-      run: docker build -t tabletto .
+- GitHub Action grün
+- Tag zeigt auf den beabsichtigten Commit
+- Release Notes stimmen mit Changelog überein
+- Quellarchiv enthält keine `.env`, DB oder Uploads
+- Build aus dem Tag erfolgreich
+- angezeigte UI-Version stimmt
+- Installations- und Updateanleitung funktionieren
 
-    - name: Test Docker image
-      run: |
-        docker run -d -p 3000:3000 -e JWT_SECRET=test-secret tabletto
-        sleep 10
-        curl -f http://localhost:3000/health || exit 1
-```
+## Fehlerhaftes Release
 
-### 2. Docker Hub Image veröffentlichen (optional)
+Einen veröffentlichten Tag nicht stillschweigend neu setzen. Stattdessen:
 
-Falls du ein vorgefertigtes Docker-Image bereitstellen möchtest:
-
-```bash
-# Bei Docker Hub anmelden
-docker login
-
-# Image bauen
-docker build -t USERNAME/tabletto:latest .
-
-# Image pushen
-docker push USERNAME/tabletto:latest
-```
-
-Dann in der README.md angeben:
-
-```bash
-# Alternative: Vorgefertigtes Image von Docker Hub
-docker run -d -p 3000:3000 \
-  -v tabletto-data:/app/data \
-  -e JWT_SECRET=your-secret \
-  USERNAME/tabletto:latest
-```
-
-### 3. Release erstellen
-
-Auf GitHub:
-1. Gehe zu "Releases" → "Create a new release"
-2. Tag: `v1.0.0`
-3. Title: `Tabletto v1.0.0`
-4. Beschreibung der Features
-5. "Publish release"
-
-### 4. LICENSE Datei (empfohlen)
-
-Erstelle eine `LICENSE` Datei. Für Open Source z.B. MIT License:
-
-```bash
-# MIT License Beispiel
-cat > LICENSE << 'EOF'
-MIT License
-
-Copyright (c) 2025 [Dein Name]
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-EOF
-```
-
-## Wichtige Sicherheitshinweise
-
-✅ **IMMER sicherstellen, dass NICHT committed wird:**
-- `.env` Dateien mit echten Secrets
-- `data/` Verzeichnis mit Datenbank
-- `node_modules/`
-- Persönliche Zugangsdaten
-
-✅ **IMMER im Repository enthalten:**
-- `.env.example` (mit Platzhaltern)
-- `README.md` mit Installationsanleitung
-- `INSTALL.md` mit Details
-- `Dockerfile` und `compose.yaml`
-- `.gitignore`
-
-## Aktualisierungen veröffentlichen
-
-Wenn du Änderungen machst:
-
-```bash
-# Änderungen committen
-git add .
-git commit -m "Beschreibung der Änderungen"
-git push
-
-# Neue Version taggen
-git tag v1.0.1
-git push --tags
-```
-
-## Support für Nutzer
-
-Erstelle auf GitHub:
-- **Issues**: Für Bug-Reports und Feature-Requests
-- **Discussions**: Für Fragen und Hilfe
-- **Wiki**: Für erweiterte Dokumentation (optional)
-
-## Beispiel README-Ergänzung
-
-Füge am Ende der README.md hinzu:
-
-```markdown
-## Installation
-
-Siehe [INSTALL.md](INSTALL.md) für die vollständige Installationsanleitung.
-
-## Support
-
-Bei Fragen oder Problemen:
-- Öffne ein [Issue](https://github.com/USERNAME/tabletto/issues)
-- Siehe [Discussions](https://github.com/USERNAME/tabletto/discussions)
-
-## Lizenz
-
-[MIT](LICENSE)
-```
+1. Auswirkung dokumentieren.
+2. bei Sicherheitsproblemen betroffene Nutzer informieren und Secretrotation
+   bewerten.
+3. korrigierende Patchversion erstellen.
+4. bei Datenrisiko Deployment stoppen und Restore-Anleitung bereitstellen.
+5. GitHub-Release nur als fehlerhaft markieren oder entfernen, wenn die
+   Repositoryrichtlinie dies vorsieht; Git-Historie nachvollziehbar lassen.

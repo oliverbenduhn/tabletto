@@ -5,7 +5,8 @@ const { validateEmail, validatePassword } = require('../utils/validation');
 const { JWT_SECRET } = require('../config/jwt');
 
 async function register(req, res) {
-  const { email, password } = req.body;
+  const password = req.body?.password;
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
 
   if (!validateEmail(email)) {
     return res.status(400).json({ error: 'Ungültige E-Mail-Adresse' });
@@ -21,7 +22,15 @@ async function register(req, res) {
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
-  const user = await createUser(email, passwordHash);
+  let user;
+  try {
+    user = await createUser(email, passwordHash);
+  } catch (error) {
+    if (error.code === 'SQLITE_CONSTRAINT') {
+      return res.status(409).json({ error: 'E-Mail bereits registriert' });
+    }
+    throw error;
+  }
 
   return res.status(201).json({
     message: 'Registrierung erfolgreich',
@@ -30,7 +39,8 @@ async function register(req, res) {
 }
 
 async function login(req, res) {
-  const { email, password } = req.body;
+  const password = req.body?.password;
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
 
   const user = await findByEmail(email);
   if (!user) {

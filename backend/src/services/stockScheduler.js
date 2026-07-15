@@ -1,245 +1,208 @@
 const cron = require('node-cron');
-const { getDatabase } = require('../config/database');
-const { createHistoryEntry } = require('../models/History');
+const { getDatabase, withTransaction } = require('../config/database');
 
 let schedulerTask = null;
+let schedulerRunning = false;
 
-/**
- * Hauptfunktion: Wird alle 5 Minuten aufgerufen
- * Prüft für jeden User und jede Tageszeit ob Abzug fällig ist
- */
-async function checkAndDeductForAllUsers() {
-  const db = getDatabase();
-  const currentTime = getCurrentTime();
+function getZonedParts(date = new Date(), timeZone = process.env.TZ || 'Europe/Berlin') {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(date).reduce((result, part) => {
+    result[part.type] = part.value;
+    return result;
+  }, {});
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}` };
+}
 
-  try {
-    const users = await db.all('SELECT * FROM users');
+function addDays(dateString, days) {
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
 
-    for (const user of users) {
-      // Morning
-      if (isWithinTimeWindow(currentTime, user.dose_time_morning, 2)) {
-        await deductMorning(user.id);
-      }
+function compareTimes(left, right) {
+  return left.localeCompare(right);
+}
 
-      // Noon (Spezialfall)
-      if (isWithinTimeWindow(currentTime, user.dose_time_noon, 2)) {
-        await deductNoon(user.id);
-      }
+async function processDeduction({ medicationId, userId, slot, scheduledFor, amount, nextDueAt = undefined }) {
+  return withTransaction(async db => {
+    const medication = await db.get(
+      'SELECT * FROM medications WHERE id = ? AND user_id = ?',
+      [medicationId, userId]
+    );
+    if (!medication) return false;
 
-      // Evening
-      if (isWithinTimeWindow(currentTime, user.dose_time_evening, 2)) {
-        await deductEvening(user.id);
-      }
+    try {
+      await db.run(
+        `INSERT INTO stock_deductions (medication_id, user_id, slot, scheduled_for)
+         VALUES (?, ?, ?, ?)`,
+        [medicationId, userId, slot, scheduledFor]
+      );
+    } catch (error) {
+      if (error.code === 'SQLITE_CONSTRAINT') return false;
+      throw error;
     }
-  } catch (error) {
-    console.error('Stock-Scheduler: Fehler:', error);
-  }
-}
 
-/**
- * Morning: Reduziert dosage_morning für tägliche Medikamente
- */
-async function deductMorning(userId) {
-  const db = getDatabase();
-  const medications = await db.all(
-    'SELECT * FROM medications WHERE user_id = ? AND interval_days = 1',
-    [userId]
-  );
-
-  for (const med of medications) {
-    if (med.dosage_morning === 0) continue;
-    if (!isMedicationDueToday(med)) continue;
-
-    const oldStock = med.current_stock;
-    const newStock = Math.max(0, oldStock - med.dosage_morning);
-
+    const oldStock = medication.current_stock;
+    const newStock = Math.max(0, oldStock - amount);
+    if (nextDueAt !== undefined) {
+      await db.run(
+        `UPDATE medications SET current_stock = ?, next_due_at = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE id = ? AND user_id = ?`,
+        [newStock, nextDueAt, medicationId, userId]
+      );
+    } else {
+      await db.run(
+        `UPDATE medications SET current_stock = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE id = ? AND user_id = ?`,
+        [newStock, medicationId, userId]
+      );
+    }
     await db.run(
-      `UPDATE medications SET current_stock = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-      [newStock, med.id]
+      `INSERT INTO history (medication_id, user_id, action, old_stock, new_stock)
+       VALUES (?, ?, ?, ?, ?)`,
+      [medicationId, userId, `auto_deduction_${slot}`, oldStock, newStock]
     );
-
-    await createHistoryEntry({
-      medicationId: med.id,
-      userId,
-      action: 'auto_deduction_morning',
-      oldStock,
-      newStock
-    });
-
-    console.log(`Morning: ${med.name} - ${oldStock} → ${newStock} (-${med.dosage_morning})`);
-  }
-}
-
-/**
- * Noon: Intervall-Medikamente ODER dosage_noon für tägliche
- */
-async function deductNoon(userId) {
-  const db = getDatabase();
-
-  // Fall A: Intervall-Medikamente (interval_days > 1)
-  const intervalMeds = await db.all(
-    'SELECT * FROM medications WHERE user_id = ? AND interval_days > 1',
-    [userId]
-  );
-
-  for (const med of intervalMeds) {
-    if (med.dosage_per_interval === 0) continue;
-    if (!isMedicationDueToday(med)) continue;
-
-    const oldStock = med.current_stock;
-    const newStock = Math.max(0, oldStock - med.dosage_per_interval);
-
-    // Berechne nächsten Termin
-    const nextDue = new Date(med.next_due_at);
-    nextDue.setDate(nextDue.getDate() + med.interval_days);
-
-    await db.run(
-      `UPDATE medications
-       SET current_stock = ?,
-           next_due_at = ?,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-      [newStock, nextDue.toISOString(), med.id]
-    );
-
-    await createHistoryEntry({
-      medicationId: med.id,
-      userId,
-      action: 'auto_deduction_interval',
-      oldStock,
-      newStock
-    });
-
-    console.log(`Interval (Noon): ${med.name} - ${oldStock} → ${newStock} (-${med.dosage_per_interval}, next: ${nextDue.toISOString().split('T')[0]})`);
-  }
-
-  // Fall B: Tägliche Medikamente mit dosage_noon
-  const dailyMeds = await db.all(
-    'SELECT * FROM medications WHERE user_id = ? AND interval_days = 1',
-    [userId]
-  );
-
-  for (const med of dailyMeds) {
-    if (med.dosage_noon === 0) continue;
-    if (!isMedicationDueToday(med)) continue;
-
-    const oldStock = med.current_stock;
-    const newStock = Math.max(0, oldStock - med.dosage_noon);
-
-    await db.run(
-      `UPDATE medications SET current_stock = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-      [newStock, med.id]
-    );
-
-    await createHistoryEntry({
-      medicationId: med.id,
-      userId,
-      action: 'auto_deduction_noon',
-      oldStock,
-      newStock
-    });
-
-    console.log(`Noon: ${med.name} - ${oldStock} → ${newStock} (-${med.dosage_noon})`);
-  }
-}
-
-/**
- * Evening: Reduziert dosage_evening für tägliche Medikamente
- */
-async function deductEvening(userId) {
-  const db = getDatabase();
-  const medications = await db.all(
-    'SELECT * FROM medications WHERE user_id = ? AND interval_days = 1',
-    [userId]
-  );
-
-  for (const med of medications) {
-    if (med.dosage_evening === 0) continue;
-    if (!isMedicationDueToday(med)) continue;
-
-    const oldStock = med.current_stock;
-    const newStock = Math.max(0, oldStock - med.dosage_evening);
-
-    await db.run(
-      `UPDATE medications SET current_stock = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-      [newStock, med.id]
-    );
-
-    await createHistoryEntry({
-      medicationId: med.id,
-      userId,
-      action: 'auto_deduction_evening',
-      oldStock,
-      newStock
-    });
-
-    console.log(`Evening: ${med.name} - ${oldStock} → ${newStock} (-${med.dosage_evening})`);
-  }
-}
-
-/**
- * Hilfsfunktionen
- */
-function isMedicationDueToday(medication) {
-  const nextDue = new Date(medication.next_due_at);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  nextDue.setHours(0, 0, 0, 0);
-  return nextDue <= today;
-}
-
-function getCurrentTime() {
-  const now = new Date();
-  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-}
-
-function isWithinTimeWindow(currentTime, targetTime, toleranceMinutes) {
-  const [currentH, currentM] = currentTime.split(':').map(Number);
-  const [targetH, targetM] = targetTime.split(':').map(Number);
-  const currentMinutes = currentH * 60 + currentM;
-  const targetMinutes = targetH * 60 + targetM;
-  return Math.abs(currentMinutes - targetMinutes) <= toleranceMinutes;
-}
-
-/**
- * Scheduler starten
- */
-function startStockScheduler() {
-  const enabled = process.env.ENABLE_STOCK_SCHEDULER !== 'false';
-  if (!enabled) {
-    console.log('Stock-Scheduler: Deaktiviert');
-    return;
-  }
-
-  // Läuft alle 5 Minuten: */5 * * * *
-  const cronExpression = process.env.STOCK_SCHEDULER_CRON || '*/5 * * * *';
-
-  if (!cron.validate(cronExpression)) {
-    console.error(`Stock-Scheduler: Ungültiger Cron-Ausdruck: ${cronExpression}`);
-    return;
-  }
-
-  schedulerTask = cron.schedule(cronExpression, checkAndDeductForAllUsers, {
-    scheduled: true,
-    timezone: process.env.TZ || 'Europe/Berlin'
+    return true;
   });
+}
 
-  console.log(`Stock-Scheduler: Gestartet mit Cron "${cronExpression}" (prüft User-individuelle Zeiten)`);
+async function dailyDatesToProcess(db, medication, slot, today, currentTime, targetTime, timeZone) {
+  const last = await db.get(
+    `SELECT MAX(scheduled_for) AS last_date FROM stock_deductions
+     WHERE medication_id = ? AND slot = ?`,
+    [medication.id, slot]
+  );
+  const lastEligibleDate = compareTimes(currentTime, targetTime) >= 0 ? today : addDays(today, -1);
+  const createdTimestamp = medication.created_at.includes('T')
+    ? medication.created_at
+    : `${medication.created_at.replace(' ', 'T')}Z`;
+  const created = getZonedParts(new Date(createdTimestamp), timeZone);
+  if (!last?.last_date) {
+    if (lastEligibleDate !== today) return [];
+    if (created.date === today && compareTimes(created.time, targetTime) > 0) return [];
+    return [today];
+  }
+
+  const dates = [];
+  let cursor = addDays(last.last_date, 1);
+  while (cursor <= lastEligibleDate && dates.length < 366) {
+    if (cursor >= created.date) dates.push(cursor);
+    cursor = addDays(cursor, 1);
+  }
+  return dates;
+}
+
+async function processDailySlot(user, slot, amountField, today, currentTime, timeZone) {
+  const targetTime = user[`dose_time_${slot}`];
+  if (!targetTime) return;
+  const db = getDatabase();
+  const medications = await db.all(
+    `SELECT * FROM medications
+     WHERE user_id = ? AND interval_days = 1 AND ${amountField} > 0`,
+    [user.id]
+  );
+  for (const medication of medications) {
+    const dates = await dailyDatesToProcess(db, medication, slot, today, currentTime, targetTime, timeZone);
+    for (const scheduledFor of dates) {
+      await processDeduction({
+        medicationId: medication.id,
+        userId: user.id,
+        slot,
+        scheduledFor,
+        amount: medication[amountField]
+      });
+    }
+  }
+}
+
+async function processIntervalMedications(user, today, currentTime, timeZone) {
+  if (!user.dose_time_noon || compareTimes(currentTime, user.dose_time_noon) < 0) return;
+  const medications = await getDatabase().all(
+    `SELECT * FROM medications
+     WHERE user_id = ? AND interval_days > 1 AND dosage_per_interval > 0`,
+    [user.id]
+  );
+  for (const medication of medications) {
+    if (!medication.next_due_at || Number.isNaN(new Date(medication.next_due_at).getTime())) {
+      console.error(`Stock-Scheduler: Medikament ${medication.id} hat kein gültiges next_due_at`);
+      continue;
+    }
+    let dueDate = getZonedParts(new Date(medication.next_due_at), timeZone).date;
+    let iterations = 0;
+    while (dueDate <= today && iterations < 366) {
+      const nextDueDate = addDays(dueDate, medication.interval_days);
+      const processed = await processDeduction({
+        medicationId: medication.id,
+        userId: user.id,
+        slot: 'interval',
+        scheduledFor: dueDate,
+        amount: medication.dosage_per_interval,
+        nextDueAt: `${nextDueDate}T12:00:00`
+      });
+      if (!processed) break;
+      dueDate = nextDueDate;
+      iterations++;
+    }
+  }
+}
+
+async function checkAndDeductForAllUsers(now = new Date()) {
+  if (schedulerRunning) return;
+  schedulerRunning = true;
+  const timeZone = process.env.TZ || 'Europe/Berlin';
+  const { date: today, time: currentTime } = getZonedParts(now, timeZone);
+  try {
+    const users = await getDatabase().all(
+      `SELECT id, dose_time_morning, dose_time_noon, dose_time_evening FROM users`
+    );
+    for (const user of users) {
+      await processDailySlot(user, 'morning', 'dosage_morning', today, currentTime, timeZone);
+      await processDailySlot(user, 'noon', 'dosage_noon', today, currentTime, timeZone);
+      await processDailySlot(user, 'evening', 'dosage_evening', today, currentTime, timeZone);
+      await processIntervalMedications(user, today, currentTime, timeZone);
+    }
+  } finally {
+    schedulerRunning = false;
+  }
+}
+
+function startStockScheduler() {
+  if (process.env.ENABLE_STOCK_SCHEDULER === 'false') return;
+  if (schedulerTask) return;
+  const cronExpression = process.env.STOCK_SCHEDULER_CRON || '*/5 * * * *';
+  if (!cron.validate(cronExpression)) {
+    throw new Error(`Ungültiger STOCK_SCHEDULER_CRON: ${cronExpression}`);
+  }
+  const timeZone = process.env.TZ || 'Europe/Berlin';
+  schedulerTask = cron.schedule(() => {
+    checkAndDeductForAllUsers().catch(error => console.error('Stock-Scheduler: Fehler:', error));
+  }, { scheduled: true, timezone: timeZone });
+  console.log(`Stock-Scheduler: Gestartet mit Cron "${cronExpression}" in ${timeZone}`);
 }
 
 function stopStockScheduler() {
   if (schedulerTask) {
     schedulerTask.stop();
-    console.log('Stock-Scheduler: Gestoppt');
+    schedulerTask = null;
   }
 }
 
-async function runStockDeductionNow() {
-  await checkAndDeductForAllUsers();
+async function runStockDeductionNow(now) {
+  await checkAndDeductForAllUsers(now);
 }
 
 module.exports = {
   startStockScheduler,
   stopStockScheduler,
-  runStockDeductionNow
+  runStockDeductionNow,
+  getZonedParts,
+  addDays
 };

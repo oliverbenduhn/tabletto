@@ -4,19 +4,21 @@ import api from '../../services/api';
 import Menu from '../Common/Menu';
 import ImportExportDialog from '../Common/ImportExportDialog';
 import packageJson from '../../../package.json';
+import { getCurrentUser } from '../../services/auth';
 
 function Header() {
   const navigate = useNavigate();
   const location = useLocation();
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const user = getCurrentUser() || {};
   const [showImportExport, setShowImportExport] = useState(false);
 
-  const handleLogout = () => {
-    api.logout();
+  const handleLogout = async () => {
+    await api.logout();
     navigate('/login');
   };
 
   const handleImportSuccess = () => {
+    setShowImportExport(false);
     window.location.reload();
   };
 
@@ -31,14 +33,14 @@ function Header() {
       <header className="sticky top-0 z-10 border-b border-gray-100 bg-white/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:gap-4 sm:py-4">
           <div className="flex items-center gap-4 sm:gap-6">
-            <Link to="/dashboard" className="flex items-baseline gap-2 text-lg font-semibold text-blue-600 sm:text-xl">
+            <Link to="/dashboard" className="flex min-h-11 items-center gap-2 text-lg font-semibold text-blue-600 sm:text-xl">
               <span>Tabletto</span>
               <span className="hidden text-xs font-normal text-gray-400 sm:inline">v{packageJson.version}</span>
             </Link>
             <nav className="hidden gap-2 sm:flex">
               <Link
                 to="/dashboard"
-                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                className={`flex min-h-11 items-center rounded-full px-4 py-2 text-sm font-medium transition ${
                   isDashboardPage
                     ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-600 hover:bg-gray-100'
@@ -48,7 +50,7 @@ function Header() {
               </Link>
               <Link
                 to="/calendar"
-                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                className={`flex min-h-11 items-center rounded-full px-4 py-2 text-sm font-medium transition ${
                   isCalendarPage
                     ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-600 hover:bg-gray-100'
@@ -58,7 +60,7 @@ function Header() {
               </Link>
               <Link
                 to="/settings"
-                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                className={`flex min-h-11 items-center rounded-full px-4 py-2 text-sm font-medium transition ${
                   isSettingsPage
                     ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-600 hover:bg-gray-100'
@@ -77,7 +79,11 @@ function Header() {
             </div>
             <Menu
               trigger={
-                <button className="flex h-10 w-10 items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100">
+                <button
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  aria-label="Hauptmenü öffnen"
+                  aria-haspopup="menu"
+                >
                   <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
                   </svg>

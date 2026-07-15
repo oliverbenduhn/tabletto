@@ -95,7 +95,7 @@ function MedicationDetail({ medication, onAddPackage, onSetStock, onPhotoUpload,
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
-              <label className="cursor-pointer rounded-full border border-blue-100 px-3 py-1 text-blue-600 transition hover:bg-blue-50">
+              <label className="inline-flex min-h-11 cursor-pointer items-center rounded-full border border-blue-100 px-3 py-2 text-blue-600 transition hover:bg-blue-50">
                 {photoUploading ? 'Lade hoch ...' : 'Foto hochladen'}
                 <input
                   type="file"
@@ -109,7 +109,7 @@ function MedicationDetail({ medication, onAddPackage, onSetStock, onPhotoUpload,
                 <button
                   type="button"
                   onClick={onPhotoDelete}
-                  className="rounded-full border border-rose-100 px-3 py-1 text-rose-600 transition hover:bg-rose-50"
+                  className="min-h-11 rounded-full border border-rose-100 px-3 py-2 text-rose-600 transition hover:bg-rose-50"
                 >
                   Foto löschen
                 </button>

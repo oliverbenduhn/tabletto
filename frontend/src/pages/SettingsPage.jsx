@@ -6,8 +6,8 @@ import api from '../services/api';
 
 function SettingsPage() {
   const [preferences, setPreferences] = useState({
-    dashboard_view: 'grid',
-    calendar_view: 'dayGridMonth',
+    dashboardView: 'grid',
+    calendarView: 'dayGridMonth',
     dose_times: {
       morning: '08:00',
       noon: '12:00',
@@ -122,9 +122,11 @@ function SettingsPage() {
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Dashboard-Ansicht</h2>
             <div className="flex gap-3">
               <button
-                onClick={() => setPreferences(prev => ({ ...prev, dashboard_view: 'grid' }))}
-                className={`rounded-xl px-4 py-2 transition ${
-                  preferences.dashboard_view === 'grid'
+                type="button"
+                aria-pressed={preferences.dashboardView === 'grid'}
+                onClick={() => setPreferences(prev => ({ ...prev, dashboardView: 'grid' }))}
+                className={`min-h-11 rounded-xl px-4 py-2 transition ${
+                  preferences.dashboardView === 'grid'
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
@@ -132,9 +134,11 @@ function SettingsPage() {
                 Karten
               </button>
               <button
-                onClick={() => setPreferences(prev => ({ ...prev, dashboard_view: 'list' }))}
-                className={`rounded-xl px-4 py-2 transition ${
-                  preferences.dashboard_view === 'list'
+                type="button"
+                aria-pressed={preferences.dashboardView === 'list'}
+                onClick={() => setPreferences(prev => ({ ...prev, dashboardView: 'list' }))}
+                className={`min-h-11 rounded-xl px-4 py-2 transition ${
+                  preferences.dashboardView === 'list'
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
@@ -149,9 +153,11 @@ function SettingsPage() {
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Kalender-Ansicht</h2>
             <div className="flex gap-3">
               <button
-                onClick={() => setPreferences(prev => ({ ...prev, calendar_view: 'dayGridMonth' }))}
-                className={`rounded-xl px-4 py-2 transition ${
-                  preferences.calendar_view === 'dayGridMonth'
+                type="button"
+                aria-pressed={preferences.calendarView === 'dayGridMonth'}
+                onClick={() => setPreferences(prev => ({ ...prev, calendarView: 'dayGridMonth' }))}
+                className={`min-h-11 rounded-xl px-4 py-2 transition ${
+                  preferences.calendarView === 'dayGridMonth'
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
@@ -159,9 +165,11 @@ function SettingsPage() {
                 Monatsansicht
               </button>
               <button
-                onClick={() => setPreferences(prev => ({ ...prev, calendar_view: 'listMonth' }))}
-                className={`rounded-xl px-4 py-2 transition ${
-                  preferences.calendar_view === 'listMonth'
+                type="button"
+                aria-pressed={preferences.calendarView === 'listMonth'}
+                onClick={() => setPreferences(prev => ({ ...prev, calendarView: 'listMonth' }))}
+                className={`min-h-11 rounded-xl px-4 py-2 transition ${
+                  preferences.calendarView === 'listMonth'
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
@@ -172,8 +180,8 @@ function SettingsPage() {
           </div>
 
           {/* Feedback */}
-          {success && <p className="rounded-md bg-green-50 p-3 text-sm text-green-600">{success}</p>}
-          {error && <p className="rounded-md bg-rose-50 p-3 text-sm text-rose-600">{error}</p>}
+          {success && <p role="status" className="rounded-md bg-green-50 p-3 text-sm text-green-700">{success}</p>}
+          {error && <p role="alert" className="rounded-md bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
 
           {/* Speichern */}
           <Button onClick={handleSave} disabled={saving} className="w-full justify-center">

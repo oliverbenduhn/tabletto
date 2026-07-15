@@ -12,6 +12,11 @@ function toRelativeMedicationPath(filename) {
   return path.posix.join('medications', filename);
 }
 
+/**
+ * Converts legacy public URLs and platform-specific separators to the relative
+ * representation stored in SQLite. This is compatibility normalization, not an
+ * authorization or path-containment check.
+ */
 function normalizeUploadPath(inputPath) {
   if (!inputPath) return null;
   const normalized = inputPath.replace(/\\/g, '/');
@@ -23,22 +28,20 @@ function normalizeUploadPath(inputPath) {
     .replace(/^\/+/, '');
 }
 
-function buildUploadUrl(relativePath) {
-  const normalized = normalizeUploadPath(relativePath);
-  if (!normalized) return null;
-  if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
-    return normalized;
-  }
-  return `/uploads/${normalized}`;
-}
-
 function resolveUploadPath(relativePath) {
   const normalized = normalizeUploadPath(relativePath);
   if (!normalized) return null;
+  // Remote references may occur in imported data but must never be treated as
+  // local files eligible for unlinking.
   if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
     return null;
   }
-  return path.join(uploadRoot, normalized);
+  const resolvedRoot = path.resolve(uploadRoot);
+  const resolvedPath = path.resolve(resolvedRoot, normalized);
+  if (resolvedPath !== resolvedRoot && !resolvedPath.startsWith(`${resolvedRoot}${path.sep}`)) {
+    return null;
+  }
+  return resolvedPath;
 }
 
 module.exports = {
@@ -46,6 +49,5 @@ module.exports = {
   medicationPhotoDir,
   ensureUploadDirs,
   toRelativeMedicationPath,
-  buildUploadUrl,
   resolveUploadPath
 };

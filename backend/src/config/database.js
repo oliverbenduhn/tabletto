@@ -3,7 +3,15 @@ const { open } = require('sqlite');
 const path = require('path');
 
 let db = null;
+let writeQueue = Promise.resolve();
 
+/**
+ * Opens the single process-wide SQLite connection and brings its schema forward.
+ *
+ * Fresh installations are created from the base schema below. Every later
+ * migration must remain idempotent because this function runs on every process
+ * start and existing installations may already contain only some newer columns.
+ */
 async function initDatabase() {
   const dbPath = process.env.DB_PATH || path.join(__dirname, '../../data/tabletto.db');
 
@@ -21,6 +29,9 @@ async function initDatabase() {
       password_hash TEXT NOT NULL,
       dashboard_view TEXT DEFAULT 'grid',
       calendar_view TEXT DEFAULT 'dayGridMonth',
+      dose_time_morning TEXT DEFAULT '08:00',
+      dose_time_noon TEXT DEFAULT '12:00',
+      dose_time_evening TEXT DEFAULT '20:00',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       last_login DATETIME
     );
@@ -41,6 +52,9 @@ async function initDatabase() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       last_stock_measured_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      interval_days INTEGER NOT NULL DEFAULT 1,
+      dosage_per_interval REAL NOT NULL DEFAULT 0,
+      next_due_at DATETIME,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
@@ -60,6 +74,21 @@ async function initDatabase() {
 
     CREATE INDEX IF NOT EXISTS idx_history_medication ON history(medication_id);
     CREATE INDEX IF NOT EXISTS idx_history_user ON history(user_id);
+
+    CREATE TABLE IF NOT EXISTS stock_deductions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      medication_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      slot TEXT NOT NULL,
+      scheduled_for TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (medication_id, slot, scheduled_for),
+      FOREIGN KEY (medication_id) REFERENCES medications(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_stock_deductions_user_date
+      ON stock_deductions(user_id, scheduled_for);
   `);
 
   // Migration: Add last_stock_measured_at column if it doesn't exist
@@ -81,7 +110,7 @@ async function initDatabase() {
     }
   } catch (error) {
     console.error('Fehler bei der Migration (last_stock_measured_at):', error);
-    // Don't fail initialization if migration fails
+    throw error;
   }
 
   // Migration: Add dosage_noon column if it doesn't exist
@@ -98,7 +127,7 @@ async function initDatabase() {
     }
   } catch (error) {
     console.error('Fehler bei der Migration (dosage_noon):', error);
-    // Don't fail initialization if migration fails
+    throw error;
   }
 
   // Migration: Add photo_path column if it doesn't exist
@@ -115,7 +144,7 @@ async function initDatabase() {
     }
   } catch (error) {
     console.error('Fehler bei der Migration (photo_path):', error);
-    // Don't fail initialization if migration fails
+    throw error;
   }
 
   // Migration: Add user preference columns if they don't exist
@@ -141,10 +170,12 @@ async function initDatabase() {
     }
   } catch (error) {
     console.error('Fehler bei der Migration (user preferences):', error);
-    // Don't fail initialization if migration fails
+    throw error;
   }
 
-  // Migration: Add interval fields for unified interval system
+  // Keep the three columns in separate checks: older installations may have
+  // stopped between ALTER statements and must be repairable on the next start.
+  // Existing daily dosages seed dosage_per_interval to preserve their meaning.
   try {
     const tableInfo = await db.all("PRAGMA table_info(medications)");
     const hasIntervalDays = tableInfo.some(col => col.name === 'interval_days');
@@ -182,10 +213,11 @@ async function initDatabase() {
     }
   } catch (error) {
     console.error('Fehler bei der Migration (interval fields):', error);
-    // Don't fail initialization if migration fails
+    throw error;
   }
 
-  // Migration: Add dose time preferences
+  // Dose times are stored as local HH:MM values. The scheduler interprets them
+  // in its configured TZ; they must not be migrated as UTC timestamps.
   try {
     const userTableInfo = await db.all("PRAGMA table_info(users)");
     const hasDoseTimeMorning = userTableInfo.some(col => col.name === 'dose_time_morning');
@@ -211,7 +243,7 @@ async function initDatabase() {
     }
   } catch (error) {
     console.error('Fehler bei der Migration (dose times):', error);
-    // Don't fail initialization if migration fails
+    throw error;
   }
 
   console.log('Datenbank initialisiert');
@@ -225,4 +257,40 @@ function getDatabase() {
   return db;
 }
 
-module.exports = { initDatabase, getDatabase };
+/**
+ * Serializes all application writes so no request can enter another request's
+ * SQLite transaction on the process-wide connection.
+ */
+function enqueueWrite(work) {
+  const run = writeQueue.then(() => work(getDatabase()));
+  writeQueue = run.catch(() => {});
+  return run;
+}
+
+function withTransaction(work) {
+  return enqueueWrite(async database => {
+    await database.exec('BEGIN IMMEDIATE');
+    try {
+      const result = await work(database);
+      await database.exec('COMMIT');
+      return result;
+    } catch (error) {
+      try {
+        await database.exec('ROLLBACK');
+      } catch (rollbackError) {
+        console.error('Rollback fehlgeschlagen:', rollbackError);
+      }
+      throw error;
+    }
+  });
+}
+
+async function closeDatabase() {
+  await writeQueue.catch(() => {});
+  if (db) {
+    await db.close();
+    db = null;
+  }
+}
+
+module.exports = { initDatabase, getDatabase, enqueueWrite, withTransaction, closeDatabase };

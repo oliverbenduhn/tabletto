@@ -1,16 +1,18 @@
 # Multi-stage Dockerfile: builds frontend and backend, produces a small runtime image
-FROM node:18-bullseye AS builder
+FROM node:22-bookworm AS builder
 
 WORKDIR /app
 
 # Install build tools for native modules and copy backend deps
 RUN apt-get update && apt-get install -y python3 build-essential libsqlite3-dev curl && rm -rf /var/lib/apt/lists/*
 COPY backend/package*.json ./backend/
-RUN cd backend && npm install --production
+# Compile the native SQLite binding against the same Debian/glibc generation as
+# the runtime image; upstream prebuilds may target a newer glibc.
+RUN cd backend && npm_config_build_from_source=sqlite3 npm ci --omit=dev
 
 # Copy frontend package files and install deps, then build
 COPY frontend/package*.json ./frontend/
-RUN cd frontend && npm install
+RUN cd frontend && npm ci
 COPY frontend/ ./frontend/
 RUN cd frontend && npm run build
 
@@ -18,7 +20,7 @@ RUN cd frontend && npm run build
 COPY backend/ ./backend/
 
 # Production image
-FROM node:18-bullseye-slim
+FROM node:22-bookworm-slim
 
 WORKDIR /app
 
@@ -27,6 +29,10 @@ COPY --from=builder /app/backend /app/backend
 
 # Copy frontend build output
 COPY --from=builder /app/frontend/build /app/frontend/build
+
+# The build context can contain restrictive host directory modes. Runtime code
+# is immutable, but every directory must be traversable by the non-root user.
+RUN chmod -R a=rX /app/backend /app/frontend
 
 # Create data directory for SQLite DB
 RUN mkdir -p /app/data

@@ -10,7 +10,7 @@ services:
       - tabletto-data:/app/data
       # - ./data:/app/data
     environment:
-      - JWT_SECRET=${JWT_SECRET:-change-this-secret-key-in-production}
+      - JWT_SECRET=${JWT_SECRET}
       - NODE_ENV=production
       - PORT=3000
       - DB_PATH=/app/data/tabletto.db
@@ -18,10 +18,11 @@ services:
       - STOCK_SCHEDULER_CRON=${STOCK_SCHEDULER_CRON:-*/5 * * * *}
       - UPLOADS_PATH=${UPLOADS_PATH:-/app/data/uploads}
       - TZ=${TZ:-Europe/Berlin}
+      - TRUST_PROXY=${TRUST_PROXY:-}
     env_file:
       - .env
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:3000/health" ]
+      test: [ "CMD-SHELL", "curl -fsS http://localhost:3000/health | grep -q '\"status\":\"ok\"'" ]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -176,7 +176,10 @@ function DashboardPage() {
     const total = medications.length;
     const critical = statusCounts.critical;
     const warning = statusCounts.warning;
-    const avgDays = medications.reduce((acc, med) => acc + (med.days_remaining || 0), 0) / total;
+    const finiteRanges = medications.map(med => med.days_remaining).filter(Number.isFinite);
+    const avgDays = finiteRanges.length
+      ? finiteRanges.reduce((sum, days) => sum + days, 0) / finiteRanges.length
+      : null;
 
     const valueMap = {
       total,
@@ -227,6 +230,7 @@ function DashboardPage() {
       <main className="mx-auto max-w-6xl space-y-8 px-4 py-6 sm:py-8">
         {toast && (
           <div
+            role={toast.type === 'error' ? 'alert' : 'status'}
             className={`fixed left-4 right-4 top-4 z-50 flex items-center gap-2 rounded-xl border px-4 py-3 text-sm shadow-lg sm:left-auto sm:right-4 sm:top-6 sm:max-w-sm ${
               toast.type === 'error'
                 ? 'border-rose-200 bg-rose-50 text-rose-700'
@@ -248,7 +252,7 @@ function DashboardPage() {
             </div>
             <div className="flex flex-wrap gap-3 text-sm text-gray-600">
               <button
-                className="w-full rounded-full border border-gray-200 px-3 py-1 hover:border-blue-200 hover:text-blue-600 sm:w-auto"
+                className="min-h-11 w-full rounded-full border border-gray-200 px-3 py-2 hover:border-blue-200 hover:text-blue-600 sm:w-auto"
                 onClick={fetchMedications}
               >
                 Aktualisieren
@@ -289,7 +293,7 @@ function DashboardPage() {
               </div>
               <button
                 onClick={() => setIsModalOpen(true)}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:w-auto"
+                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:w-auto"
               >
                 <svg viewBox="0 0 20 20" className="h-5 w-5" aria-hidden="true">
                   <path fill="currentColor" d="M10 3v14M3 10h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -299,18 +303,21 @@ function DashboardPage() {
             </div>
             <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center">
                 <input
+                  aria-label="Medikamente nach Name suchen"
                   type="search"
                   placeholder="Suche nach Name..."
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-2 text-sm shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  className="min-h-11 w-full rounded-xl border border-gray-200 px-4 py-2 text-sm shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                 />
                 <div className="flex flex-wrap gap-2">
                   {filterButtons.map(button => (
                     <button
+                      type="button"
+                      aria-pressed={statusFilter === button.id}
                       key={button.id}
                       onClick={() => setStatusFilter(button.id)}
-                      className={`rounded-full px-3 py-1 text-sm transition ${
+                      className={`min-h-11 rounded-full px-3 py-2 text-sm transition ${
                         statusFilter === button.id
                           ? 'bg-blue-600 text-white shadow'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -327,7 +334,7 @@ function DashboardPage() {
                   <select
                     value={sortBy}
                     onChange={e => setSortBy(e.target.value)}
-                    className="rounded-xl border border-gray-200 bg-white px-3 py-1 text-sm shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                    className="min-h-11 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                   >
                     <option value="name-asc">Name (A-Z)</option>
                     <option value="days">Verbleibende Tage</option>
@@ -337,8 +344,9 @@ function DashboardPage() {
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
+                    aria-pressed={viewMode === 'grid'}
                     onClick={() => setViewMode('grid')}
-                    className={`flex items-center gap-1 rounded-xl border px-3 py-1 text-sm transition ${
+                    className={`flex min-h-11 items-center gap-1 rounded-xl border px-3 py-2 text-sm transition ${
                       viewMode === 'grid'
                         ? 'border-blue-200 bg-blue-50 text-blue-600'
                         : 'border-gray-200 text-gray-500 hover:bg-gray-50'
@@ -351,8 +359,9 @@ function DashboardPage() {
                   </button>
                   <button
                     type="button"
+                    aria-pressed={viewMode === 'list'}
                     onClick={() => setViewMode('list')}
-                    className={`flex items-center gap-1 rounded-xl border px-3 py-1 text-sm transition ${
+                    className={`flex min-h-11 items-center gap-1 rounded-xl border px-3 py-2 text-sm transition ${
                       viewMode === 'list'
                         ? 'border-blue-200 bg-blue-50 text-blue-600'
                         : 'border-gray-200 text-gray-500 hover:bg-gray-50'

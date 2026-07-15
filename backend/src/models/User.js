@@ -1,27 +1,26 @@
-const { getDatabase } = require('../config/database');
+const { getDatabase, enqueueWrite } = require('../config/database');
 
 async function createUser(email, passwordHash) {
-  const db = getDatabase();
-  const result = await db.run(
+  const result = await enqueueWrite(db => db.run(
     'INSERT INTO users (email, password_hash) VALUES (?, ?)',
     [email, passwordHash]
-  );
+  ));
   return { id: result.lastID, email };
 }
 
 async function findByEmail(email) {
   const db = getDatabase();
-  return db.get('SELECT * FROM users WHERE email = ?', [email]);
+  // Bestehende Installationen können E-Mail-Adressen noch mit Großbuchstaben
+  // enthalten; neue Registrierungen werden bereits normalisiert gespeichert.
+  return db.get('SELECT * FROM users WHERE email = ? COLLATE NOCASE ORDER BY id LIMIT 1', [email]);
 }
 
 async function updateLastLogin(id) {
-  const db = getDatabase();
-  await db.run('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [id]);
+  await enqueueWrite(db => db.run('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [id]));
 }
 
 async function updatePassword(id, passwordHash) {
-  const db = getDatabase();
-  await db.run('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, id]);
+  await enqueueWrite(db => db.run('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, id]));
 }
 
 async function findById(id) {
@@ -35,9 +34,10 @@ async function getPreferences(id) {
     'SELECT dashboard_view, calendar_view, dose_time_morning, dose_time_noon, dose_time_evening FROM users WHERE id = ?',
     [id]
   );
+  if (!user) return null;
   return {
-    dashboard_view: user.dashboard_view,
-    calendar_view: user.calendar_view,
+    dashboardView: user.dashboard_view,
+    calendarView: user.calendar_view,
     dose_times: {
       morning: user.dose_time_morning,
       noon: user.dose_time_noon,
@@ -81,7 +81,7 @@ async function updatePreferences(id, { dashboardView, calendarView, dose_times }
   }
 
   values.push(id);
-  await db.run(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
+  await enqueueWrite(database => database.run(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values));
   return getPreferences(id);
 }
 
