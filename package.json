@@ -15,6 +15,7 @@
     "build:frontend": "cd frontend && npm run build",
     "start": "cd backend && npm start",
     "version:sync": "node scripts/sync-version.js",
+    "pretest:e2e": "npm run build:frontend",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:report": "playwright show-report"
