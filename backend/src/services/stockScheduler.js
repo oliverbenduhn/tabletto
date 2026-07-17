@@ -186,7 +186,7 @@ function startStockScheduler() {
     throw new Error(`Ungültiger STOCK_SCHEDULER_CRON: ${cronExpression}`);
   }
   const timeZone = process.env.TZ || 'Europe/Berlin';
-  schedulerTask = cron.schedule(() => {
+  schedulerTask = cron.schedule(cronExpression, () => {
     checkAndDeductForAllUsers().catch(error => console.error('Stock-Scheduler: Fehler:', error));
   }, { scheduled: true, timezone: timeZone });
   console.log(`Stock-Scheduler: Gestartet mit Cron "${cronExpression}" in ${timeZone}`);

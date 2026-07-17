@@ -14,7 +14,11 @@ const { initDatabase, getDatabase, closeDatabase } = require('../src/config/data
 const { validateMedication } = require('../src/utils/validation');
 const { calculateMedicationStats } = require('../src/utils/calculations');
 const { resolveUploadPath } = require('../src/utils/uploads');
-const { runStockDeductionNow } = require('../src/services/stockScheduler');
+const {
+  startStockScheduler,
+  stopStockScheduler,
+  runStockDeductionNow
+} = require('../src/services/stockScheduler');
 
 test.before(async () => {
   await initDatabase();
@@ -60,6 +64,19 @@ test('Nullverbrauch besitzt einen stabilen JSON-Vertrag', () => {
   });
   assert.equal(stats.days_remaining, null);
   assert.doesNotThrow(() => JSON.stringify(stats));
+});
+
+test('Scheduler registriert das konfigurierte Cron-Pattern', () => {
+  process.env.ENABLE_STOCK_SCHEDULER = 'true';
+  process.env.STOCK_SCHEDULER_CRON = '0 0 1 1 *';
+
+  try {
+    assert.doesNotThrow(() => startStockScheduler());
+  } finally {
+    stopStockScheduler();
+    process.env.ENABLE_STOCK_SCHEDULER = 'false';
+    delete process.env.STOCK_SCHEDULER_CRON;
+  }
 });
 
 test('Scheduler bucht denselben Slot idempotent und holt den Folgetag nach', async () => {
