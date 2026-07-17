@@ -70,11 +70,35 @@ jobs:
           if [ "$CREATED" != "true" ] && [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
             if [ -n "$REQUESTED_VERSION" ]; then
               VERSION=${REQUESTED_VERSION#v}
-              TAG="v$VERSION"
-              gh release view "$TAG" >/dev/null
+              if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                echo "::error::Ungültige Recovery-Version: $VERSION"
+                exit 1
+              fi
+
+              # Der erste Manifest-Release trug mangels expliziter Konfiguration
+              # den Komponentenpräfix tabletto-. Recovery bleibt dafür kompatibel.
+              TAG=""
+              for candidate in "v$VERSION" "tabletto-v$VERSION"; do
+                if gh release view "$candidate" >/dev/null 2>&1; then
+                    TAG=$candidate
+                    break
+                fi
+              done
+
+              if [ -z "$TAG" ]; then
+                echo "::error::Kein GitHub-Release für Version $VERSION gefunden."
+                exit 1
+              fi
             else
               TAG=$(gh release view --json tagName --jq '.tagName')
-              VERSION=${TAG#v}
+              case "$TAG" in
+                v*) VERSION=${TAG#v} ;;
+                *-v*) VERSION=${TAG##*-v} ;;
+                *)
+                  echo "::error::Release-Tag hat kein unterstütztes Format: $TAG"
+                  exit 1
+                  ;;
+              esac
             fi
             CREATED=true
             echo "::notice::Recovery veröffentlicht $TAG erneut nach GHCR und Komodo."
