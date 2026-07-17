@@ -5,6 +5,13 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/).
 
+## [1.8.0](https://github.com/oliverbenduhn/tabletto/compare/v1.7.1...v1.8.0) (2026-07-17)
+
+
+### Features
+
+* **notifications:** Bestandsinfo-Testmail aus Einstellungen senden ([#11](https://github.com/oliverbenduhn/tabletto/issues/11)) ([96aa7d8](https://github.com/oliverbenduhn/tabletto/commit/96aa7d8334e00e8537fdd10998151d8926208a99))
+
 ## [1.7.1](https://github.com/oliverbenduhn/tabletto/compare/v1.7.0...v1.7.1) (2026-07-17)
 
 
