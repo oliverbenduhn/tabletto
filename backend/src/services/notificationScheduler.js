@@ -69,6 +69,21 @@ async function runStatusDetectionNow() {
   return { mailsSent: totalMails };
 }
 
+async function deliverWeeklyDigest(user, { skipEmpty = true } = {}) {
+  const medications = await getDatabase().all(
+    'SELECT * FROM medications WHERE user_id = ?',
+    [user.id]
+  );
+  if (skipEmpty && medications.length === 0) return { sent: false, reason: 'no-medications' };
+
+  const enriched = medications.map(med => ({ ...med, ...calculateMedicationStats(med) }));
+  const mail = renderWeeklyDigest(user, medications, enriched);
+  const result = await sendMail({ to: user.email, ...mail });
+  if (result.skipped) return { sent: false, reason: result.reason };
+  if (result.error) return { sent: false, reason: 'send-failed' };
+  return { sent: true };
+}
+
 async function runWeeklyDigestNow() {
   if (!isMailConfigured()) return { skipped: 'smtp-not-configured' };
   const db = getDatabase();
@@ -77,15 +92,17 @@ async function runWeeklyDigestNow() {
   );
   let totalMails = 0;
   for (const user of users) {
-    const medications = await db.all('SELECT * FROM medications WHERE user_id = ?', [user.id]);
-    if (medications.length === 0) continue;
-
-    const enriched = medications.map(med => ({ ...med, ...calculateMedicationStats(med) }));
-    const mail = renderWeeklyDigest(user, medications, enriched);
-    const result = await sendMail({ to: user.email, ...mail });
-    if (!result.skipped && !result.error) totalMails += 1;
+    const result = await deliverWeeklyDigest(user);
+    if (result.sent) totalMails += 1;
   }
   return { mailsSent: totalMails };
+}
+
+async function sendWeeklyDigestForUser(userId) {
+  if (!isMailConfigured()) return { sent: false, reason: 'smtp-not-configured' };
+  const user = await getDatabase().get('SELECT id, email FROM users WHERE id = ?', [userId]);
+  if (!user) return { sent: false, reason: 'user-not-found' };
+  return deliverWeeklyDigest(user, { skipEmpty: false });
 }
 
 function startNotificationScheduler() {
@@ -114,5 +131,6 @@ module.exports = {
   stopNotificationScheduler,
   runStatusDetectionNow,
   runWeeklyDigestNow,
+  sendWeeklyDigestForUser,
   isWorsening
 };

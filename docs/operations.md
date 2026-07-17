@@ -211,6 +211,13 @@ Beobachten:
 - Rate-Limit- und Auth-Fehler
 - Backupalter und Restore-Testergebnis
 
+Nach Änderungen an SMTP kann ein angemeldeter Benutzer unter
+**Einstellungen → Benachrichtigungen per E-Mail → Testmail senden** den echten
+Transport und das aktuelle Format der Bestandsinfo-Mail prüfen. Eine
+Erfolgsmeldung bedeutet, dass der SMTP-Server die Nachricht angenommen hat;
+Posteingang und gegebenenfalls Spam-Ordner bestätigen anschließend die
+Zustellung. Der Test verändert den Wochen-Opt-in nicht.
+
 Schedulerlogs enthalten nur technische Fehler und interne IDs, keine Namen oder
 Bestände. Logzugriff bleibt dennoch geschützt.
 

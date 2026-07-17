@@ -21,4 +21,13 @@ const registerLimiter = rateLimit({
   skipSuccessfulRequests: true
 });
 
-module.exports = { loginLimiter, registerLimiter };
+const notificationTestLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 3,
+  message: { error: 'Zu viele Testmails, bitte später erneut versuchen' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: req => `user:${req.user.id}`
+});
+
+module.exports = { loginLimiter, registerLimiter, notificationTestLimiter };

@@ -99,6 +99,12 @@ async function triggerWeeklyDigest(request) {
   return response.json();
 }
 
+async function sendWeeklyTestMail(request, token) {
+  return request.post('/api/user/notifications/test-weekly', {
+    headers: auth(token)
+  });
+}
+
 async function resetNotificationState(request) {
   const response = await request.post('/api/internal/test/reset-notifications');
   expect(response.ok()).toBeTruthy();
@@ -211,6 +217,56 @@ test('Bestandsinfo-Mail: keine Medikamente → keine Mail', async ({ request }) 
   const result = await triggerWeeklyDigest(request);
   expect(result.mailsSent).toBe(0);
   expect(fakeSmtp.captured).toHaveLength(0);
+});
+
+test('Bestandsinfo-Testmail: authentifiziert, unabhängig vom Opt-in und nur an den eigenen Benutzer', async ({ request }) => {
+  const user = await createUser(request, 'weekly-test-api');
+  await createMedication(request, user.token, baseDailyMedication('Testmail-Medikament', 6));
+
+  const response = await sendWeeklyTestMail(request, user.token);
+  expect(response.status()).toBe(200);
+  expect(await response.json()).toEqual({
+    message: 'Testmail wurde an deine registrierte E-Mail-Adresse gesendet'
+  });
+  await fakeSmtp.waitForCount(1);
+
+  const mail = parseMail(fakeSmtp.captured[0]);
+  expect(mail.to).toBe(user.email);
+  expect(mail.subject).toContain('Bestands');
+  expect(mail.body).toContain('Testmail-Medikament');
+
+  const preferences = await request.get('/api/user/preferences', { headers: auth(user.token) });
+  expect((await preferences.json()).preferences.notificationWeeklyEnabled).toBe(false);
+});
+
+test('Bestandsinfo-Testmail: Button zeigt den Versandstatus', async ({ page, request }) => {
+  const user = await createUser(request, 'weekly-test-ui');
+  await page.addInitScript(({ token, email }) => {
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify({ email }));
+  }, user);
+
+  await page.goto('/settings');
+  await page.getByRole('button', { name: 'Testmail senden' }).click();
+
+  await expect(page.getByRole('status')).toHaveText(
+    'Testmail wurde an deine registrierte E-Mail-Adresse gesendet'
+  );
+  await fakeSmtp.waitForCount(1);
+  expect(parseMail(fakeSmtp.captured[0]).to).toBe(user.email);
+});
+
+test('Bestandsinfo-Testmail: Authentifizierung und Rate-Limit schützen den Versand', async ({ request }) => {
+  const unauthorized = await request.post('/api/user/notifications/test-weekly');
+  expect(unauthorized.status()).toBe(401);
+
+  const user = await createUser(request, 'weekly-test-limit');
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    expect((await sendWeeklyTestMail(request, user.token)).status()).toBe(200);
+  }
+  const limited = await sendWeeklyTestMail(request, user.token);
+  expect(limited.status()).toBe(429);
+  expect((await limited.json()).error).toContain('Zu viele Testmails');
 });
 
 test('Statuswarnung: good → warning bei aktivem Toggle', async ({ request }) => {
@@ -386,8 +442,11 @@ test('SMTP nicht konfiguriert: App läuft, keine Mails, keine Fehler', async ({ 
   await request.post('/api/internal/test/disable-smtp');
   const status = await triggerStatusDetection(request);
   const weekly = await triggerWeeklyDigest(request);
+  const testMail = await sendWeeklyTestMail(request, user.token);
   expect(status.skipped).toBe('smtp-not-configured');
   expect(weekly.skipped).toBe('smtp-not-configured');
+  expect(testMail.status()).toBe(503);
+  expect((await testMail.json()).error).toBe('E-Mail-Versand ist nicht konfiguriert');
 
   // Mailbox bleibt leer.
   await new Promise(resolve => setTimeout(resolve, 300));

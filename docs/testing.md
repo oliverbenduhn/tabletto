@@ -125,6 +125,7 @@ npx playwright install --with-deps chromium
 | Datenmodell | frische DB und Migration einer alten DB |
 | Bestand | Wert und zugehörige History atomar prüfen |
 | Scheduler | Morgen/Mittag/Abend, Intervall, Zeitzone, Idempotenz |
+| E-Mail-Testversand | eigener Empfänger, unabhängig vom Opt-in, Auth, Rate-Limit, SMTP-Fehler |
 | Upload | Größe, MIME, Pfad, Ersetzen, Löschen, Fremdbenutzer |
 | Import | Commit, Rollback, ID-Mapping, Intervallfelder, Fotos |
 | UI | Desktop und Mobile, Tastatur, Lade-/Fehlerzustände |

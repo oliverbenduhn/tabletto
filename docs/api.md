@@ -334,6 +334,25 @@ API-Antwort auf.
 
 Response: `{ "preferences": <aktuelle Präferenzen> }`.
 
+### `POST /api/user/notifications/test-weekly`
+
+Sendet die aktuelle Bestandsinfo-Mail einmalig an die registrierte E-Mail-Adresse
+des angemeldeten Benutzers. Der explizite Testversand ist unabhängig vom
+Wochen-Opt-in und verändert keine Einstellungen oder Bestandsdaten. Auch bei
+leerem Bestand wird eine Vorschau versendet.
+
+Erfolg (`200`):
+
+```json
+{
+  "message": "Testmail wurde an deine registrierte E-Mail-Adresse gesendet"
+}
+```
+
+Fehler: `401` ohne gültige Anmeldung, `429` nach mehr als drei Testmails in zehn
+Minuten, `503` ohne SMTP-Konfiguration und `502`, wenn der SMTP-Server den
+Versand nicht annimmt. Interne SMTP-Fehlerdetails werden nicht zurückgegeben.
+
 ## Datenexport und -import
 
 ### `GET /api/data/export`

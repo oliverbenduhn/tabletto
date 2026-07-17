@@ -206,6 +206,11 @@ Toggle. Sie enthält Counts je Warnstatus und eine Liste der Medikamente mit
  kritischem oder gelbem Status samt Leerstandsdaten. Grüne Medikamente werden
 bewusst weggelassen.
 
+Ein authentifizierter Benutzer kann denselben Renderer und SMTP-Transport über
+`POST /api/user/notifications/test-weekly` explizit testen. Dieser Pfad ist auf
+den angemeldeten Benutzer begrenzt, ignoriert bewusst den Wochen-Opt-in und
+verändert weder Einstellungen noch Bestandsdaten.
+
 SMTP-Zugangsdaten werden ausschließlich aus der Backend-Umgebung gelesen.
 Fehlt `SMTP_HOST` oder `SMTP_FROM`, ist das Mailmodul ein No-Op; Scheduler
 und API bleiben voll funktionsfähig.
