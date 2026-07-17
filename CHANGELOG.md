@@ -5,6 +5,21 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/).
 
+## [1.7.0](https://github.com/oliverbenduhn/tabletto/compare/v1.6.0...v1.7.0) (2026-07-17)
+
+
+### Features
+
+* **legal:** footer link to legal.benduhn.de ([62dd776](https://github.com/oliverbenduhn/tabletto/commit/62dd776a5e9806cc4064a56f4ac9e154e7fc4202))
+* PWA-Unterstützung hinzufügen ([7973aa0](https://github.com/oliverbenduhn/tabletto/commit/7973aa00f7f52bd401671af2fcd9faa5e04dc46a))
+
+
+### Bug Fixes
+
+* **legal:** replace JSX string expression with HTML entity ([e97e478](https://github.com/oliverbenduhn/tabletto/commit/e97e478d20e635dfe41bc27309935a0102ebb146))
+* **legal:** use CSS class instead of inline style object ([0225c33](https://github.com/oliverbenduhn/tabletto/commit/0225c33e15bda11b0cdc5777d16d6193fdb1b2ee))
+* **release:** Tagformat und Recovery kompatibel machen ([#7](https://github.com/oliverbenduhn/tabletto/issues/7)) ([f8b1a2a](https://github.com/oliverbenduhn/tabletto/commit/f8b1a2ae852bcf0f4293b8836f87268a15d17745))
+
 ## [1.6.0](https://github.com/oliverbenduhn/tabletto/compare/tabletto-v1.5.0...tabletto-v1.6.0) (2026-07-17)
 
 
