@@ -1,231 +1,88 @@
-# Tabletto auf GitHub veröffentlichen
+# Releases veröffentlichen
 
-Diese Anleitung zeigt dir, wie du Tabletto auf GitHub veröffentlichst, damit andere es einfach installieren können.
+Tabletto verwendet Semantic Versioning, Conventional Commits und
+`release-please`. Releases entstehen nach erfolgreicher CI automatisch; Tags,
+GitHub-Releases und Produktionsimages werden nicht manuell erstellt.
 
-## Schritt 1: GitHub Repository erstellen
+## Voraussetzungen
 
-### Option A: Via GitHub Website (einfacher)
+- GitHub Actions darf Pull Requests und Releases schreiben sowie Pakete nach
+  GHCR pushen.
+- Das GHCR-Package `ghcr.io/oliverbenduhn/tabletto` ist öffentlich, damit der
+  Produktionshost ohne Registry-Credentials pullen kann.
+- `KOMODO_WEBHOOK_URL` und `KOMODO_WEBHOOK_SECRET` sind als GitHub-Secrets
+  hinterlegt.
+- Nur während der Einrichtung darf die Repository-Variable
+  `DEPLOY_WEBHOOK_OPTIONAL=true` den fehlenden Deploy-Webhook tolerieren.
 
-1. Gehe zu <https://github.com/new>
-2. Erstelle ein neues Repository:
-   - **Repository name**: `tabletto`
-   - **Description**: `Webbasierte Medikamentenverwaltung mit Bestandsverfolgung`
-   - **Visibility**: ✅ Public (damit andere es nutzen können)
-   - **❌ NICHT** "Initialize this repository with" - Optionen auswählen (wir haben bereits Code)
-3. Klicke auf "Create repository"
+Der automatische Squash-Merge des Release-PRs setzt voraus, dass die
+Branch-Protection dem `GITHUB_TOKEN` diesen Merge erlaubt. Der Workflow prüft
+einen tatsächlichen synchronen Merge und wird andernfalls rot; er merkt keinen
+späteren Auto-Merge vor.
 
-### Option B: Via GitHub CLI (gh)
+## Ablauf
 
-```bash
-# GitHub CLI installiert? Prüfe mit:
-gh --version
+1. Ein Conventional Commit landet auf `main`.
+2. `ci.yml` führt Backend- und E2E-Tests aus und baut das Docker-Image ohne Push.
+3. Erst nach erfolgreicher CI erstellt oder aktualisiert `release-please.yml`
+   den Release-PR und merged ihn sofort per Squash.
+4. Ein zweiter Release-Please-Aufruf erzeugt Tag `vX.Y.Z` und GitHub-Release.
+5. Der Workflow baut den Release-Stand und pusht
+   `ghcr.io/oliverbenduhn/tabletto:X.Y.Z` sowie `:latest`.
+6. Der signierte Komodo-Webhook löst den Redeploy aus.
 
-# Repository erstellen
-gh repo create tabletto --public --description "Webbasierte Medikamentenverwaltung mit Bestandsverfolgung"
-```
+Der Release-PR aktualisiert `CHANGELOG.md`, die Rootversion sowie
+`backend/package.json` und `frontend/package.json`. Die UI liest beim Build die
+Frontend-Paketversion. Die Image-Metadaten erhalten dieselbe Version über das
+Build-Argument `APP_VERSION`.
 
-## Schritt 2: Lokales Repository mit GitHub verbinden
+Für die einmalige Einführung begrenzt `bootstrap-sha` die Historie auf den
+vorhandenen 1.5.0-Bump-Commit. Das ist nötig, weil der Paketstand 1.5.0 nie als
+GitHub-Tag veröffentlicht wurde; der letzte alte Release ist `v1.3.0`.
 
-Nach dem Erstellen des GitHub-Repos zeigt GitHub dir Befehle. Verwende diese:
+Der Bump-Commit selbst startet wegen des GitHub-Token-Rekursionsschutzes keine
+weitere CI. Dieses Restrisiko ist akzeptiert, weil er ausschließlich
+deterministische Versions- und Changelog-Änderungen enthält. Das Release-Image
+wird aus diesem Stand neu gebaut; CI- und Release-Build verwenden denselben
+Dockerfile, sind aber keine byte-identische Wiederverwendung desselben Builds.
 
-```bash
-# Falls noch kein Git-Repository initialisiert
-git init
-git add .
-git commit -m "Initial commit"
-git branch -M main
+## Conventional Commits
 
-# Remote hinzufügen (ersetze USERNAME mit deinem GitHub-Benutzernamen)
-git remote add origin https://github.com/USERNAME/tabletto.git
+- `fix:` erzeugt einen Patch-Release.
+- `feat:` erzeugt einen Minor-Release.
+- `feat!:`/`fix!:` oder ein `BREAKING CHANGE:`-Footer erzeugt einen
+  Major-Release.
+- Commits ohne releasebaren Typ werden gesammelt, lösen aber allein keinen
+  Release aus.
 
-# Oder mit SSH (empfohlen wenn SSH-Keys eingerichtet sind):
-git remote add origin git@github.com:USERNAME/tabletto.git
-
-# Code hochladen
-git push -u origin main
-```
-
-## Schritt 3: Neue Dateien committen
-
-Die neu erstellten Dateien müssen noch committed werden:
-
-```bash
-# Neue Dateien hinzufügen
-git add INSTALL.md docker-compose.prod.yml README.md .gitignore
-
-# Commit erstellen
-git commit -m "Add installation guide and production docker-compose"
-
-# Pushen
-git push
-```
-
-## Schritt 4: Repository-Beschreibung anpassen (optional)
-
-Auf GitHub im Repository:
-1. Gehe zu "Settings"
-2. Füge "Topics" hinzu: `medication`, `docker`, `nodejs`, `react`, `sqlite`
-3. Setze die Website-URL (falls deployed)
-
-## ✅ Fertig! Andere können jetzt installieren mit:
+Eine Version kann explizit erzwungen werden:
 
 ```bash
-git clone https://github.com/USERNAME/tabletto.git
-cd tabletto
-cp .env.example .env
-# .env bearbeiten und JWT_SECRET setzen
-docker compose up -d
+git commit --allow-empty -m "chore: release 2.0.0" -m "Release-As: 2.0.0"
+git push origin main
 ```
 
-## Zusätzliche Empfehlungen
+## Recovery und Verifikation
 
-### 1. GitHub Actions für CI/CD (optional)
+Bricht ein Lauf nach dem Release-PR-Merge ab, `Release` in GitHub Actions über
+`workflow_dispatch` erneut starten. Der erste Release-Please-Aufruf erkennt den
+gemergten PR; dessen Outputs werden mit denen des optionalen zweiten Aufrufs
+konsolidiert.
 
-Erstelle `.github/workflows/docker-build.yml`:
+Existiert der GitHub-Release bereits, aber Image-Push oder Webhook schlug danach
+fehl, beim manuellen Start dessen `X.Y.Z` als `version` angeben. Ohne Eingabe
+wird bewusst der neueste GitHub-Release erneut nach GHCR veröffentlicht und
+deployed.
 
-```yaml
-name: Docker Build
+Nach einem echten Release prüfen:
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+- CI und Release-Workflow sind grün.
+- Tag `vX.Y.Z`, GitHub-Release und beide GHCR-Tags existieren.
+- das Image-Label `org.opencontainers.image.version` ist `X.Y.Z`.
+- Komodo hat neu deployed und `/health` liefert `{"status":"ok"}`.
+- Login, Persistenz und Fotos funktionieren; bei Migrationen zusätzlich den
+  dokumentierten Restore-Test durchführen.
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Build Docker image
-      run: docker build -t tabletto .
-
-    - name: Test Docker image
-      run: |
-        docker run -d -p 3000:3000 -e JWT_SECRET=test-secret tabletto
-        sleep 10
-        curl -f http://localhost:3000/health || exit 1
-```
-
-### 2. Docker Hub Image veröffentlichen (optional)
-
-Falls du ein vorgefertigtes Docker-Image bereitstellen möchtest:
-
-```bash
-# Bei Docker Hub anmelden
-docker login
-
-# Image bauen
-docker build -t USERNAME/tabletto:latest .
-
-# Image pushen
-docker push USERNAME/tabletto:latest
-```
-
-Dann in der README.md angeben:
-
-```bash
-# Alternative: Vorgefertigtes Image von Docker Hub
-docker run -d -p 3000:3000 \
-  -v tabletto-data:/app/data \
-  -e JWT_SECRET=your-secret \
-  USERNAME/tabletto:latest
-```
-
-### 3. Release erstellen
-
-Auf GitHub:
-1. Gehe zu "Releases" → "Create a new release"
-2. Tag: `v1.0.0`
-3. Title: `Tabletto v1.0.0`
-4. Beschreibung der Features
-5. "Publish release"
-
-### 4. LICENSE Datei (empfohlen)
-
-Erstelle eine `LICENSE` Datei. Für Open Source z.B. MIT License:
-
-```bash
-# MIT License Beispiel
-cat > LICENSE << 'EOF'
-MIT License
-
-Copyright (c) 2025 [Dein Name]
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-EOF
-```
-
-## Wichtige Sicherheitshinweise
-
-✅ **IMMER sicherstellen, dass NICHT committed wird:**
-- `.env` Dateien mit echten Secrets
-- `data/` Verzeichnis mit Datenbank
-- `node_modules/`
-- Persönliche Zugangsdaten
-
-✅ **IMMER im Repository enthalten:**
-- `.env.example` (mit Platzhaltern)
-- `README.md` mit Installationsanleitung
-- `INSTALL.md` mit Details
-- `Dockerfile` und `compose.yaml`
-- `.gitignore`
-
-## Aktualisierungen veröffentlichen
-
-Wenn du Änderungen machst:
-
-```bash
-# Änderungen committen
-git add .
-git commit -m "Beschreibung der Änderungen"
-git push
-
-# Neue Version taggen
-git tag v1.0.1
-git push --tags
-```
-
-## Support für Nutzer
-
-Erstelle auf GitHub:
-- **Issues**: Für Bug-Reports und Feature-Requests
-- **Discussions**: Für Fragen und Hilfe
-- **Wiki**: Für erweiterte Dokumentation (optional)
-
-## Beispiel README-Ergänzung
-
-Füge am Ende der README.md hinzu:
-
-```markdown
-## Installation
-
-Siehe [INSTALL.md](INSTALL.md) für die vollständige Installationsanleitung.
-
-## Support
-
-Bei Fragen oder Problemen:
-- Öffne ein [Issue](https://github.com/USERNAME/tabletto/issues)
-- Siehe [Discussions](https://github.com/USERNAME/tabletto/discussions)
-
-## Lizenz
-
-[MIT](LICENSE)
-```
+Einen fehlerhaften Tag nicht verschieben. Stattdessen Auswirkung dokumentieren,
+bei Datenrisiko das Deployment stoppen und einen korrigierenden Patch-Release
+erstellen.

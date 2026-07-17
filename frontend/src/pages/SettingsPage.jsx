@@ -6,13 +6,15 @@ import api from '../services/api';
 
 function SettingsPage() {
   const [preferences, setPreferences] = useState({
-    dashboard_view: 'grid',
-    calendar_view: 'dayGridMonth',
+    dashboardView: 'grid',
+    calendarView: 'dayGridMonth',
     dose_times: {
       morning: '08:00',
       noon: '12:00',
       evening: '20:00'
-    }
+    },
+    notificationWeeklyEnabled: false,
+    notificationStatusEnabled: false
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -122,9 +124,11 @@ function SettingsPage() {
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Dashboard-Ansicht</h2>
             <div className="flex gap-3">
               <button
-                onClick={() => setPreferences(prev => ({ ...prev, dashboard_view: 'grid' }))}
-                className={`rounded-xl px-4 py-2 transition ${
-                  preferences.dashboard_view === 'grid'
+                type="button"
+                aria-pressed={preferences.dashboardView === 'grid'}
+                onClick={() => setPreferences(prev => ({ ...prev, dashboardView: 'grid' }))}
+                className={`min-h-11 rounded-xl px-4 py-2 transition ${
+                  preferences.dashboardView === 'grid'
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
@@ -132,9 +136,11 @@ function SettingsPage() {
                 Karten
               </button>
               <button
-                onClick={() => setPreferences(prev => ({ ...prev, dashboard_view: 'list' }))}
-                className={`rounded-xl px-4 py-2 transition ${
-                  preferences.dashboard_view === 'list'
+                type="button"
+                aria-pressed={preferences.dashboardView === 'list'}
+                onClick={() => setPreferences(prev => ({ ...prev, dashboardView: 'list' }))}
+                className={`min-h-11 rounded-xl px-4 py-2 transition ${
+                  preferences.dashboardView === 'list'
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
@@ -144,14 +150,54 @@ function SettingsPage() {
             </div>
           </div>
 
-          {/* Kalender-Ansicht */}
+          {/* Benachrichtigungen */}
+        <div className="rounded-3xl border border-gray-100 bg-white/90 p-6 shadow-sm">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Benachrichtigungen per E-Mail</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Empfänger ist deine registrierte E-Mail-Adresse. Beide Benachrichtigungen sind standardmäßig aus.
+          </p>
+          <div className="space-y-3">
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                role="switch"
+                aria-label="Wöchentliche Bestandsinfo-Mail aktivieren"
+                className="mt-1 h-5 w-5 min-h-11 min-w-11 rounded border-gray-300 text-blue-500"
+                checked={preferences.notificationWeeklyEnabled}
+                onChange={(event) => setPreferences(prev => ({ ...prev, notificationWeeklyEnabled: event.target.checked }))}
+              />
+              <span className="flex-1">
+                <span className="block font-medium text-gray-900">Wöchentliche Bestandsinfo-Mail</span>
+                <span className="block text-sm text-gray-600">Sonntag 18:00: Übersicht und auffällige Medikamente.</span>
+              </span>
+            </label>
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                role="switch"
+                aria-label="Statuswarnungen aktivieren"
+                className="mt-1 h-5 w-5 min-h-11 min-w-11 rounded border-gray-300 text-blue-500"
+                checked={preferences.notificationStatusEnabled}
+                onChange={(event) => setPreferences(prev => ({ ...prev, notificationStatusEnabled: event.target.checked }))}
+              />
+              <span className="flex-1">
+                <span className="block font-medium text-gray-900">Statuswarnungen</span>
+                <span className="block text-sm text-gray-600">Mail bei Verschlechterung des Warnstatus (gut → gelb oder rot).</span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        {/* Kalender-Ansicht */}
           <div className="rounded-3xl border border-gray-100 bg-white/90 p-6 shadow-sm">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Kalender-Ansicht</h2>
             <div className="flex gap-3">
               <button
-                onClick={() => setPreferences(prev => ({ ...prev, calendar_view: 'dayGridMonth' }))}
-                className={`rounded-xl px-4 py-2 transition ${
-                  preferences.calendar_view === 'dayGridMonth'
+                type="button"
+                aria-pressed={preferences.calendarView === 'dayGridMonth'}
+                onClick={() => setPreferences(prev => ({ ...prev, calendarView: 'dayGridMonth' }))}
+                className={`min-h-11 rounded-xl px-4 py-2 transition ${
+                  preferences.calendarView === 'dayGridMonth'
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
@@ -159,9 +205,11 @@ function SettingsPage() {
                 Monatsansicht
               </button>
               <button
-                onClick={() => setPreferences(prev => ({ ...prev, calendar_view: 'listMonth' }))}
-                className={`rounded-xl px-4 py-2 transition ${
-                  preferences.calendar_view === 'listMonth'
+                type="button"
+                aria-pressed={preferences.calendarView === 'listMonth'}
+                onClick={() => setPreferences(prev => ({ ...prev, calendarView: 'listMonth' }))}
+                className={`min-h-11 rounded-xl px-4 py-2 transition ${
+                  preferences.calendarView === 'listMonth'
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
@@ -172,8 +220,8 @@ function SettingsPage() {
           </div>
 
           {/* Feedback */}
-          {success && <p className="rounded-md bg-green-50 p-3 text-sm text-green-600">{success}</p>}
-          {error && <p className="rounded-md bg-rose-50 p-3 text-sm text-rose-600">{error}</p>}
+          {success && <p role="status" className="rounded-md bg-green-50 p-3 text-sm text-green-700">{success}</p>}
+          {error && <p role="alert" className="rounded-md bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
 
           {/* Speichern */}
           <Button onClick={handleSave} disabled={saving} className="w-full justify-center">

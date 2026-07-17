@@ -1,27 +1,26 @@
-const { getDatabase } = require('../config/database');
+const { getDatabase, enqueueWrite } = require('../config/database');
 
 async function createUser(email, passwordHash) {
-  const db = getDatabase();
-  const result = await db.run(
+  const result = await enqueueWrite(db => db.run(
     'INSERT INTO users (email, password_hash) VALUES (?, ?)',
     [email, passwordHash]
-  );
+  ));
   return { id: result.lastID, email };
 }
 
 async function findByEmail(email) {
   const db = getDatabase();
-  return db.get('SELECT * FROM users WHERE email = ?', [email]);
+  // Bestehende Installationen können E-Mail-Adressen noch mit Großbuchstaben
+  // enthalten; neue Registrierungen werden bereits normalisiert gespeichert.
+  return db.get('SELECT * FROM users WHERE email = ? COLLATE NOCASE ORDER BY id LIMIT 1', [email]);
 }
 
 async function updateLastLogin(id) {
-  const db = getDatabase();
-  await db.run('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [id]);
+  await enqueueWrite(db => db.run('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [id]));
 }
 
 async function updatePassword(id, passwordHash) {
-  const db = getDatabase();
-  await db.run('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, id]);
+  await enqueueWrite(db => db.run('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, id]));
 }
 
 async function findById(id) {
@@ -32,21 +31,32 @@ async function findById(id) {
 async function getPreferences(id) {
   const db = getDatabase();
   const user = await db.get(
-    'SELECT dashboard_view, calendar_view, dose_time_morning, dose_time_noon, dose_time_evening FROM users WHERE id = ?',
+    `SELECT dashboard_view, calendar_view, dose_time_morning, dose_time_noon, dose_time_evening,
+            notification_weekly_enabled, notification_status_enabled
+     FROM users WHERE id = ?`,
     [id]
   );
+  if (!user) return null;
   return {
-    dashboard_view: user.dashboard_view,
-    calendar_view: user.calendar_view,
+    dashboardView: user.dashboard_view,
+    calendarView: user.calendar_view,
     dose_times: {
       morning: user.dose_time_morning,
       noon: user.dose_time_noon,
       evening: user.dose_time_evening
-    }
+    },
+    notificationWeeklyEnabled: !!user.notification_weekly_enabled,
+    notificationStatusEnabled: !!user.notification_status_enabled
   };
 }
 
-async function updatePreferences(id, { dashboardView, calendarView, dose_times }) {
+async function updatePreferences(id, {
+  dashboardView,
+  calendarView,
+  dose_times,
+  notificationWeeklyEnabled,
+  notificationStatusEnabled
+}) {
   const db = getDatabase();
   const fields = [];
   const values = [];
@@ -76,12 +86,22 @@ async function updatePreferences(id, { dashboardView, calendarView, dose_times }
     }
   }
 
+  if (notificationWeeklyEnabled !== undefined) {
+    fields.push('notification_weekly_enabled = ?');
+    values.push(notificationWeeklyEnabled ? 1 : 0);
+  }
+
+  if (notificationStatusEnabled !== undefined) {
+    fields.push('notification_status_enabled = ?');
+    values.push(notificationStatusEnabled ? 1 : 0);
+  }
+
   if (!fields.length) {
     return getPreferences(id);
   }
 
   values.push(id);
-  await db.run(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
+  await enqueueWrite(database => database.run(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values));
   return getPreferences(id);
 }
 

@@ -3,6 +3,10 @@ const DEFAULT_JWT_SECRET = 'change-this-secret-key-in-production';
 // Ensure we always have a JWT secret to work with. In production the environment
 // variable MUST be set; otherwise we fall back to a placeholder so the app
 // does not crash but emit a clear warning.
+if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || process.env.JWT_SECRET === DEFAULT_JWT_SECRET)) {
+  throw new Error('JWT_SECRET muss in Produktion gesetzt sein und darf nicht dem unsicheren Standardwert entsprechen');
+}
+
 const JWT_SECRET = process.env.JWT_SECRET || DEFAULT_JWT_SECRET;
 
 if (!process.env.JWT_SECRET) {

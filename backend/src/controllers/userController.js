@@ -17,6 +17,10 @@ async function getProfile(req, res) {
 async function changePassword(req, res) {
   const { current_password, new_password } = req.body;
 
+  if (typeof current_password !== 'string') {
+    return res.status(400).json({ error: 'Aktuelles Passwort ist erforderlich' });
+  }
+
   if (!validatePassword(new_password)) {
     return res.status(400).json({ error: 'Neues Passwort erfüllt Anforderungen nicht' });
   }
@@ -45,7 +49,13 @@ async function getUserPreferences(req, res) {
 }
 
 async function updateUserPreferences(req, res) {
-  const { dashboardView, calendarView, dose_times } = req.body || {};
+  const {
+    dashboardView,
+    calendarView,
+    dose_times,
+    notificationWeeklyEnabled,
+    notificationStatusEnabled
+  } = req.body || {};
   const updates = {};
 
   if (dashboardView !== undefined) {
@@ -63,6 +73,9 @@ async function updateUserPreferences(req, res) {
   }
 
   if (dose_times !== undefined) {
+    if (!dose_times || typeof dose_times !== 'object' || Array.isArray(dose_times)) {
+      return res.status(400).json({ error: 'Ungültige Einnahmezeiten' });
+    }
     if (dose_times.morning && !TIME_REGEX.test(dose_times.morning)) {
       return res.status(400).json({ error: 'Ungültiges Format für dose_time_morning (HH:MM)' });
     }
@@ -73,6 +86,20 @@ async function updateUserPreferences(req, res) {
       return res.status(400).json({ error: 'Ungültiges Format für dose_time_evening (HH:MM)' });
     }
     updates.dose_times = dose_times;
+  }
+
+  if (notificationWeeklyEnabled !== undefined) {
+    if (typeof notificationWeeklyEnabled !== 'boolean') {
+      return res.status(400).json({ error: 'Ungültiger notificationWeeklyEnabled' });
+    }
+    updates.notificationWeeklyEnabled = notificationWeeklyEnabled;
+  }
+
+  if (notificationStatusEnabled !== undefined) {
+    if (typeof notificationStatusEnabled !== 'boolean') {
+      return res.status(400).json({ error: 'Ungültiger notificationStatusEnabled' });
+    }
+    updates.notificationStatusEnabled = notificationStatusEnabled;
   }
 
   const preferences = await updatePreferences(req.user.id, updates);

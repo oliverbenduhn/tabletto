@@ -1,8 +1,10 @@
+import { clearPrivateClientData, getToken, saveSession } from './auth';
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 class ApiService {
   async request(endpoint, options = {}) {
-    const token = localStorage.getItem('token');
+    const token = getToken();
     const headers = {
       ...(options.headers || {})
     };
@@ -22,6 +24,12 @@ class ApiService {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Ein Fehler ist aufgetreten' }));
+      if ((response.status === 401 || response.status === 403) && token) {
+        await clearPrivateClientData();
+        if (!window.location.pathname.startsWith('/login')) {
+          window.location.assign(`/login?returnTo=${encodeURIComponent(window.location.pathname)}`);
+        }
+      }
       throw new Error(error.error || 'Ein Fehler ist aufgetreten');
     }
 
@@ -42,15 +50,13 @@ class ApiService {
     });
 
     if (data.token) {
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      saveSession(data.token, data.user);
     }
     return data;
   }
 
-  logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+  async logout() {
+    await clearPrivateClientData();
   }
 
   async getMedications() {

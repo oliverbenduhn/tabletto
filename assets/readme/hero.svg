@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 1200 460" width="100%" role="img"
+     aria-labelledby="hero-title hero-desc">
+  <title id="hero-title">Tabletto – Dashboard-Vorschau</title>
+  <desc id="hero-desc">Mock-Ansicht des Tabletto-Dashboards mit vier Medikamenten-Karten in unterschiedlichen Warnstatus (Gut, Achtung, Kritisch) und Reichweiten-Balken.</desc>
+
+  <defs>
+    <style>
+      .bg        { fill: #f8fafc; }
+      .card      { fill: #ffffff; stroke: #e2e8f0; stroke-width: 1; }
+      .eyebrow   { font: 600 14px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #2563eb; letter-spacing: 0.06em; }
+      .title     { font: 700 64px -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif; fill: #0f172a; }
+      .subtitle  { font: 500 22px -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif; fill: #334155; }
+      .desc      { font: 400 16px -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif; fill: #64748b; }
+      .name      { font: 600 18px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #0f172a; }
+      .meta      { font: 400 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #64748b; }
+      .status    { font: 500 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #475569; }
+      .days      { font: 600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #0f172a; }
+      .bar-track { fill: #f1f5f9; }
+      .dot-good     { fill: #16a34a; }
+      .dot-warning  { fill: #f59e0b; }
+      .dot-critical { fill: #dc2626; }
+      @media (prefers-color-scheme: dark) {
+        .bg        { fill: #0f172a; }
+        .card      { fill: #1e293b; stroke: #334155; }
+        .eyebrow   { fill: #60a5fa; }
+        .title, .name, .days { fill: #f1f5f9; }
+        .subtitle  { fill: #cbd5e1; }
+        .desc      { fill: #94a3b8; }
+        .meta      { fill: #94a3b8; }
+        .status    { fill: #cbd5e1; }
+        .bar-track { fill: #334155; }
+      }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1200" height="460" rx="26" />
+
+  <!-- Eyebrow + title block -->
+  <g transform="translate(60 56)">
+    <text class="eyebrow" y="14">SELBSTGEHOSTETE PWA · DEUTSCHSPRACHIG</text>
+    <text class="title" y="76">Tabletto</text>
+    <text class="subtitle" y="116">Reichweite. Warnungen. Einnahmen.</text>
+    <text class="desc" y="148">Persönliche Medikamentenliste als selbst hostbare Web-App.</text>
+    <text class="desc" y="170">SQLite, Docker, keine Cloud.</text>
+  </g>
+
+  <!-- Dashboard mock: four medication cards -->
+  <g transform="translate(60 240)">
+    <!-- Vitamin D – good, weekly? Actually daily. Reichweite 28 days. -->
+    <g>
+      <rect class="card" x="0" y="0" width="260" height="160" rx="20" />
+      <text class="name" x="22" y="38">Vitamin D</text>
+      <text class="meta" x="22" y="58">1 Tablette · morgens</text>
+      <rect class="bar-track" x="22" y="82" width="216" height="8" rx="4" />
+      <rect x="22" y="82" width="200" height="8" rx="4" class="dot-good" />
+      <circle cx="30" cy="120" r="4" class="dot-good" />
+      <text class="status" x="42" y="124">Gut</text>
+      <text class="days" x="238" y="124" text-anchor="end">28 Tage</text>
+    </g>
+
+    <!-- Ramipril – warning -->
+    <g transform="translate(280 0)">
+      <rect class="card" x="0" y="0" width="260" height="160" rx="20" />
+      <text class="name" x="22" y="38">Ramipril</text>
+      <text class="meta" x="22" y="58">1 Tablette · morgens</text>
+      <rect class="bar-track" x="22" y="82" width="216" height="8" rx="4" />
+      <rect x="22" y="82" width="95" height="8" rx="4" class="dot-warning" />
+      <circle cx="30" cy="120" r="4" class="dot-warning" />
+      <text class="status" x="42" y="124">Achtung</text>
+      <text class="days" x="238" y="124" text-anchor="end">10 Tage</text>
+    </g>
+
+    <!-- Metformin – critical -->
+    <g transform="translate(560 0)">
+      <rect class="card" x="0" y="0" width="260" height="160" rx="20" />
+      <text class="name" x="22" y="38">Metformin</text>
+      <text class="meta" x="22" y="58">2 Tabletten · morgens, abends</text>
+      <rect class="bar-track" x="22" y="82" width="216" height="8" rx="4" />
+      <rect x="22" y="82" width="22" height="8" rx="4" class="dot-critical" />
+      <circle cx="30" cy="120" r="4" class="dot-critical" />
+      <text class="status" x="42" y="124">Kritisch</text>
+      <text class="days" x="238" y="124" text-anchor="end">3 Tage</text>
+    </g>
+
+    <!-- L-Thyroxin – weekly interval -->
+    <g transform="translate(840 0)">
+      <rect class="card" x="0" y="0" width="260" height="160" rx="20" />
+      <text class="name" x="22" y="38">L-Thyroxin</text>
+      <text class="meta" x="22" y="58">1 Tablette · wöchentlich</text>
+      <rect class="bar-track" x="22" y="82" width="216" height="8" rx="4" />
+      <rect x="22" y="82" width="180" height="8" rx="4" class="dot-good" />
+      <circle cx="30" cy="120" r="4" class="dot-good" />
+      <text class="status" x="42" y="124">Gut</text>
+      <text class="days" x="238" y="124" text-anchor="end">84 Tage</text>
+    </g>
+  </g>
+</svg>

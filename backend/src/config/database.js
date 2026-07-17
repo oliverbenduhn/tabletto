@@ -3,7 +3,15 @@ const { open } = require('sqlite');
 const path = require('path');
 
 let db = null;
+let writeQueue = Promise.resolve();
 
+/**
+ * Opens the single process-wide SQLite connection and brings its schema forward.
+ *
+ * Fresh installations are created from the base schema below. Every later
+ * migration must remain idempotent because this function runs on every process
+ * start and existing installations may already contain only some newer columns.
+ */
 async function initDatabase() {
   const dbPath = process.env.DB_PATH || path.join(__dirname, '../../data/tabletto.db');
 
@@ -21,6 +29,11 @@ async function initDatabase() {
       password_hash TEXT NOT NULL,
       dashboard_view TEXT DEFAULT 'grid',
       calendar_view TEXT DEFAULT 'dayGridMonth',
+      dose_time_morning TEXT DEFAULT '08:00',
+      dose_time_noon TEXT DEFAULT '12:00',
+      dose_time_evening TEXT DEFAULT '20:00',
+      notification_weekly_enabled INTEGER NOT NULL DEFAULT 0,
+      notification_status_enabled INTEGER NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       last_login DATETIME
     );
@@ -41,6 +54,10 @@ async function initDatabase() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       last_stock_measured_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      interval_days INTEGER NOT NULL DEFAULT 1,
+      dosage_per_interval REAL NOT NULL DEFAULT 0,
+      next_due_at DATETIME,
+      last_notified_status TEXT,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
@@ -60,6 +77,21 @@ async function initDatabase() {
 
     CREATE INDEX IF NOT EXISTS idx_history_medication ON history(medication_id);
     CREATE INDEX IF NOT EXISTS idx_history_user ON history(user_id);
+
+    CREATE TABLE IF NOT EXISTS stock_deductions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      medication_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      slot TEXT NOT NULL,
+      scheduled_for TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (medication_id, slot, scheduled_for),
+      FOREIGN KEY (medication_id) REFERENCES medications(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_stock_deductions_user_date
+      ON stock_deductions(user_id, scheduled_for);
   `);
 
   // Migration: Add last_stock_measured_at column if it doesn't exist
@@ -81,7 +113,7 @@ async function initDatabase() {
     }
   } catch (error) {
     console.error('Fehler bei der Migration (last_stock_measured_at):', error);
-    // Don't fail initialization if migration fails
+    throw error;
   }
 
   // Migration: Add dosage_noon column if it doesn't exist
@@ -98,7 +130,7 @@ async function initDatabase() {
     }
   } catch (error) {
     console.error('Fehler bei der Migration (dosage_noon):', error);
-    // Don't fail initialization if migration fails
+    throw error;
   }
 
   // Migration: Add photo_path column if it doesn't exist
@@ -115,7 +147,7 @@ async function initDatabase() {
     }
   } catch (error) {
     console.error('Fehler bei der Migration (photo_path):', error);
-    // Don't fail initialization if migration fails
+    throw error;
   }
 
   // Migration: Add user preference columns if they don't exist
@@ -141,10 +173,12 @@ async function initDatabase() {
     }
   } catch (error) {
     console.error('Fehler bei der Migration (user preferences):', error);
-    // Don't fail initialization if migration fails
+    throw error;
   }
 
-  // Migration: Add interval fields for unified interval system
+  // Keep the three columns in separate checks: older installations may have
+  // stopped between ALTER statements and must be repairable on the next start.
+  // Existing daily dosages seed dosage_per_interval to preserve their meaning.
   try {
     const tableInfo = await db.all("PRAGMA table_info(medications)");
     const hasIntervalDays = tableInfo.some(col => col.name === 'interval_days');
@@ -182,10 +216,11 @@ async function initDatabase() {
     }
   } catch (error) {
     console.error('Fehler bei der Migration (interval fields):', error);
-    // Don't fail initialization if migration fails
+    throw error;
   }
 
-  // Migration: Add dose time preferences
+  // Dose times are stored as local HH:MM values. The scheduler interprets them
+  // in its configured TZ; they must not be migrated as UTC timestamps.
   try {
     const userTableInfo = await db.all("PRAGMA table_info(users)");
     const hasDoseTimeMorning = userTableInfo.some(col => col.name === 'dose_time_morning');
@@ -211,7 +246,49 @@ async function initDatabase() {
     }
   } catch (error) {
     console.error('Fehler bei der Migration (dose times):', error);
-    // Don't fail initialization if migration fails
+    throw error;
+  }
+
+  // Notification preferences default to off (Opt-in). Existing rows must
+  // explicitly opt in; new users see the same defaults. The migration never
+  // touches last_notified_status so the first real status change after an
+  // upgrade can still trigger a mail.
+  try {
+    const userTableInfo = await db.all("PRAGMA table_info(users)");
+    const hasWeeklyEnabled = userTableInfo.some(col => col.name === 'notification_weekly_enabled');
+    const hasStatusEnabled = userTableInfo.some(col => col.name === 'notification_status_enabled');
+
+    if (!hasWeeklyEnabled) {
+      console.log('Führe Migration aus: Füge notification_weekly_enabled Spalte hinzu');
+      await db.run(`ALTER TABLE users ADD COLUMN notification_weekly_enabled INTEGER NOT NULL DEFAULT 0`);
+      console.log('Migration notification_weekly_enabled erfolgreich abgeschlossen');
+    }
+
+    if (!hasStatusEnabled) {
+      console.log('Führe Migration aus: Füge notification_status_enabled Spalte hinzu');
+      await db.run(`ALTER TABLE users ADD COLUMN notification_status_enabled INTEGER NOT NULL DEFAULT 0`);
+      console.log('Migration notification_status_enabled erfolgreich abgeschlossen');
+    }
+  } catch (error) {
+    console.error('Fehler bei der Migration (notification preferences):', error);
+    throw error;
+  }
+
+  // last_notified_status is the idempotency key for status warnings: we only
+  // mail when the new status is strictly worse than what was last reported.
+  // Nullable on purpose: existing medications get a clean slate after upgrade.
+  try {
+    const medicationTableInfo = await db.all("PRAGMA table_info(medications)");
+    const hasLastNotifiedStatus = medicationTableInfo.some(col => col.name === 'last_notified_status');
+
+    if (!hasLastNotifiedStatus) {
+      console.log('Führe Migration aus: Füge last_notified_status Spalte hinzu');
+      await db.run(`ALTER TABLE medications ADD COLUMN last_notified_status TEXT`);
+      console.log('Migration last_notified_status erfolgreich abgeschlossen');
+    }
+  } catch (error) {
+    console.error('Fehler bei der Migration (last_notified_status):', error);
+    throw error;
   }
 
   console.log('Datenbank initialisiert');
@@ -225,4 +302,40 @@ function getDatabase() {
   return db;
 }
 
-module.exports = { initDatabase, getDatabase };
+/**
+ * Serializes all application writes so no request can enter another request's
+ * SQLite transaction on the process-wide connection.
+ */
+function enqueueWrite(work) {
+  const run = writeQueue.then(() => work(getDatabase()));
+  writeQueue = run.catch(() => {});
+  return run;
+}
+
+function withTransaction(work) {
+  return enqueueWrite(async database => {
+    await database.exec('BEGIN IMMEDIATE');
+    try {
+      const result = await work(database);
+      await database.exec('COMMIT');
+      return result;
+    } catch (error) {
+      try {
+        await database.exec('ROLLBACK');
+      } catch (rollbackError) {
+        console.error('Rollback fehlgeschlagen:', rollbackError);
+      }
+      throw error;
+    }
+  });
+}
+
+async function closeDatabase() {
+  await writeQueue.catch(() => {});
+  if (db) {
+    await db.close();
+    db = null;
+  }
+}
+
+module.exports = { initDatabase, getDatabase, enqueueWrite, withTransaction, closeDatabase };

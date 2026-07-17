@@ -1,267 +1,110 @@
-# Tabletto mit Komodo/Portainer/Yacht deployen
+# Tabletto mit Komodo deployen
 
-Diese Anleitung zeigt, wie du Tabletto mit einem Klick in Komodo, Portainer oder ähnlichen Docker-Management-Tools deployen kannst.
+Diese Anleitung ergänzt das [Betriebshandbuch](docs/operations.md). Komodo baut
+Tabletto nicht selbst, sondern zieht das von GitHub Actions veröffentlichte
+Release-Image aus GHCR.
 
-## 🚀 One-Click-Deployment
+## Voraussetzungen
 
-### Komodo
+- Komodo mit Zugriff auf einen Docker-Host
+- Zugriff auf das öffentliche Package `ghcr.io/oliverbenduhn/tabletto`
+- persistenter Docker-Speicher
+- optional Domain und bestehender HTTPS-Reverse-Proxy
 
-1. **Stack erstellen**
-   - Öffne Komodo
-   - Navigiere zu "Stacks"
-   - Klicke auf "New Stack" oder "Add Stack"
+## Stack anlegen
 
-2. **Repository konfigurieren**
-   - **Name**: `tabletto`
-   - **Repository URL**: `https://github.com/oliverbenduhn/tabletto.git`
-   - **Branch**: `main`
-   - **Compose File Path**: `compose.yaml`
+| Feld | Wert |
+|---|---|
+| Name | `tabletto` |
+| Repository | `https://github.com/oliverbenduhn/tabletto.git` |
+| Branch | `main` |
+| Compose-Pfad | `compose.yaml` |
 
-3. **Umgebungsvariablen (optional aber empfohlen)**
-   - `JWT_SECRET`: Dein sicheres Secret (generiere mit `openssl rand -base64 32`)
+Die Repository-Referenz liefert die Compose-Konfiguration; der Container selbst
+kommt aus `ghcr.io/oliverbenduhn/tabletto:latest`. Für ein fest gepinntes
+Deployment in Komodo beziehungsweise `compose.yaml` den Image-Tag auf eine
+Version wie `1.6.0` setzen. Image-Tags tragen kein führendes `v`.
 
-4. **Deploy klicken**
-   - Klicke auf "Deploy" oder "Start"
-   - Warte bis der Build abgeschlossen ist (kann 2-5 Minuten dauern)
+## Variablen und Secrets
 
-5. **Fertig!**
-   - Öffne `http://dein-server:3000`
+Mindestens:
 
-### Portainer
-
-1. **Stack hinzufügen**
-   - Navigiere zu "Stacks"
-   - Klicke auf "+ Add stack"
-
-2. **Repository-Option wählen**
-   - Name: `tabletto`
-   - **Repository**:
-     - Repository URL: `https://github.com/oliverbenduhn/tabletto`
-     - Repository reference: `refs/heads/main`
-     - Compose path: `compose.yaml`
-
-3. **Environment Variables (optional)**
-   - Füge hinzu:
-     ```
-     JWT_SECRET=dein-sicheres-secret-hier
-     ```
-
-4. **Deploy the stack**
-   - Klicke unten auf "Deploy the stack"
-   - Warte auf den Build-Prozess
-
-5. **Zugriff**
-   - Tabletto läuft auf Port `3000`
-
-### Yacht
-
-1. **Deploy**
-   - Klicke auf "Deploy"
-   - Wähle "Deploy from Git Repository"
-
-2. **Konfiguration**
-   - **Name**: `tabletto`
-   - **Git Repository**: `https://github.com/oliverbenduhn/tabletto.git`
-   - **Branch**: `main`
-   - **Compose File**: `compose.yaml`
-
-3. **Umgebungsvariablen**
-   - `JWT_SECRET`: Dein Secret
-
-4. **Deploy**
-   - Klicke "Deploy"
-
-### Dockge
-
-1. **New Compose**
-   - Klicke auf "+ Compose"
-
-2. **From Git**
-   - Wähle "Import from Git"
-   - URL: `https://github.com/oliverbenduhn/tabletto.git`
-   - Branch: `main`
-   - Compose File: `compose.yaml`
-
-3. **Deploy**
-
-## 📝 Wichtige Hinweise
-
-### JWT_SECRET ändern (WICHTIG für Produktion!)
-
-Das Standard-Secret ist **NICHT SICHER**. Ändere es unbedingt!
-
-**Möglichkeit 1: In Komodo/Portainer**
-- Füge Umgebungsvariable hinzu: `JWT_SECRET=dein-secret`
-
-**Möglichkeit 2: Nach dem Deployment**
-```bash
-# Container bearbeiten und JWT_SECRET neu setzen
-docker exec tabletto printenv JWT_SECRET  # Zeigt aktuelles Secret
-
-# Container neu starten mit neuem Secret
-docker stop tabletto
-docker rm tabletto
-# In deinem Management-Tool: Füge JWT_SECRET hinzu und redeploy
+```dotenv
+JWT_SECRET=<langes-zufälliges-secret>
+TZ=Europe/Berlin
+ENABLE_STOCK_SCHEDULER=true
+STOCK_SCHEDULER_CRON=*/5 * * * *
 ```
 
-**Secret generieren:**
-```bash
-openssl rand -base64 32
+Bei Domainbetrieb:
+
+```dotenv
+FRONTEND_ORIGIN=https://tabletto.example.org
 ```
 
-### Ports anpassen
+`JWT_SECRET` geschützt in Komodo hinterlegen. Ein Wechsel macht bestehende JWTs
+ungültig. SMTP-Zugangsdaten werden ebenfalls nur als Umgebungsvariablen oder
+Komodo-Secrets gesetzt.
 
-Falls Port 3000 belegt ist, ändere in der `compose.yaml`:
-```yaml
-ports:
-  - "8080:3000"  # Nutzt Port 8080 statt 3000
-```
+## Webhook-Deploy
 
-### Daten-Backup
+1. Am Tabletto-Stack in Komodo den GitHub-kompatiblen Deploy-Webhook aktivieren
+   und die `/deploy`-URL kopieren.
+2. Das globale beziehungsweise ressourcenspezifische Komodo-Webhook-Secret als
+   GitHub-Secret `KOMODO_WEBHOOK_SECRET` hinterlegen.
+3. Die URL als GitHub-Secret `KOMODO_WEBHOOK_URL` hinterlegen.
+4. Nach erfolgreicher Einrichtung die Übergangsvariable
+   `DEPLOY_WEBHOOK_OPTIONAL` entfernen.
 
-Die Datenbank wird in einem Docker Volume gespeichert: `tabletto-data`
+Der Release-Workflow sendet einen Push-Body für `main` und signiert ihn als
+HMAC-SHA256 im Header `X-Hub-Signature-256`. Fehlende Secrets oder ein
+fehlgeschlagener Aufruf machen den Workflow standardmäßig rot; das bereits
+gepushte Image kann dann in Komodo manuell deployed werden.
 
-**Backup erstellen:**
-```bash
-docker exec tabletto sqlite3 /app/data/tabletto.db ".backup /app/data/backup.db"
-docker cp tabletto:/app/data/backup.db ./tabletto-backup-$(date +%Y%m%d).db
-```
+## Deployment und Verifikation
 
-**Backup wiederherstellen:**
-```bash
-docker cp ./tabletto-backup-YYYYMMDD.db tabletto:/app/data/tabletto.db
-docker restart tabletto
-```
-
-### HTTPS / Reverse Proxy
-
-Für Produktions-Deployments solltest du einen Reverse Proxy verwenden:
-
-**Nginx Proxy Manager** (empfohlen für Komodo-Nutzer):
-1. Füge einen neuen Proxy Host hinzu
-2. **Domain**: `tabletto.deine-domain.de`
-3. **Forward Hostname/IP**: `tabletto` (Container-Name)
-4. **Forward Port**: `3000`
-5. **SSL**: Aktiviere "Force SSL" und "HTTP/2 Support"
-6. Lasse ein Let's Encrypt Zertifikat generieren
-
-**Traefik Labels** (falls du Traefik verwendest):
-```yaml
-services:
-  tabletto:
-    build: .
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.tabletto.rule=Host(`tabletto.deine-domain.de`)"
-      - "traefik.http.routers.tabletto.entrypoints=websecure"
-      - "traefik.http.routers.tabletto.tls.certresolver=letsencrypt"
-      - "traefik.http.services.tabletto.loadbalancer.server.port=3000"
-```
-
-## 🔍 Monitoring & Logs
-
-### Logs anzeigen
-
-**In Komodo/Portainer:**
-- Gehe zu deinem Stack
-- Klicke auf den Container "tabletto"
-- Wähle "Logs"
-
-**Via CLI:**
-```bash
-docker logs -f tabletto
-```
-
-### Health Check
-
-Tabletto hat einen Health-Endpoint:
-```bash
-curl http://localhost:3000/health
-```
-
-Erwartete Antwort:
-```json
-{"status":"ok"}
-```
-
-### Container Status
+1. Stackkonfiguration speichern und deployen. `pull_policy: always` zieht das
+   aktuelle Release-Image.
+2. Containerstatus und Logs prüfen.
+3. Registrierung/Login sowie Persistenz testen.
+4. Sicherstellen, dass ein Redeploy das Volume `tabletto-data` wiederverwendet.
 
 ```bash
-docker ps | grep tabletto
+curl -fsS https://tabletto.example.org/health
 ```
 
-## 🐛 Problembehandlung
+Erwartet wird `{"status":"ok"}`. Zusätzlich Medikament anlegen, Foto laden und
+einen Containerneustart prüfen. Nur eine scheduleraktive Instanz betreiben.
 
-### Build schlägt fehl
+## Reverse Proxy
 
-**Problem**: Out of memory während des Builds
-**Lösung**: Erhöhe Docker Memory Limit auf mindestens 2GB
+Der Proxy leitet auf Port 3000. Für Traefik können installationsspezifische
+Labels ergänzt werden. Port 3000 nach erfolgreicher Proxyanbindung nicht
+zusätzlich öffentlich exponieren und `FRONTEND_ORIGIN` auf die exakte
+HTTPS-Origin setzen.
 
-**Problem**: Network timeout
-**Lösung**: Prüfe Internet-Verbindung, probiere erneut
+## Backup, Update und Rollback
 
-### Container startet nicht
+Vor jedem Update Datenbank und Uploads gemeinsam sichern; das Offline-Verfahren
+und der Restore-Ablauf stehen im [Betriebshandbuch](docs/operations.md).
+Backups nicht ausschließlich im Anwendungsvolume aufbewahren.
 
-```bash
-# Logs prüfen
-docker logs tabletto
+Ein normales Update entsteht durch einen automatischen Release. Der Webhook
+deployed anschließend `:latest`; alternativ in Komodo manuell „Redeploy“
+auslösen.
 
-# Häufige Ursachen:
-# - Port 3000 bereits belegt → Ändere Port in compose.yaml
-# - Volume-Berechtigungen → Prüfe Docker Volume Permissions
-```
+Für einen Rollback den Image-Tag auf die vorherige Version, zum Beispiel
+`1.5.0`, setzen und redeployen. Bei inkompatiblen Datenbankmigrationen reicht
+ein Image-Rollback nicht; dann zusätzlich den passenden Datenstand restaurieren.
 
-### Kann nicht auf Port 3000 zugreifen
+## Häufige Fehler
 
-```bash
-# Prüfe ob Container läuft
-docker ps | grep tabletto
-
-# Prüfe Port-Mapping
-docker port tabletto
-
-# Prüfe Firewall
-sudo ufw status
-sudo ufw allow 3000/tcp  # Falls nötig
-```
-
-### JWT-Token-Fehler
-
-Das passiert wenn `JWT_SECRET` geändert wurde während Nutzer eingeloggt sind.
-
-**Lösung**: Nutzer müssen sich neu einloggen.
-
-## 📊 Ressourcen-Anforderungen
-
-**Minimum:**
-- CPU: 0.5 Cores
-- RAM: 256 MB
-- Disk: 500 MB (+ Datenbank-Wachstum)
-
-**Empfohlen:**
-- CPU: 1 Core
-- RAM: 512 MB
-- Disk: 2 GB
-
-## 🔄 Updates
-
-Wenn eine neue Version verfügbar ist:
-
-**In Komodo/Portainer:**
-1. Gehe zu deinem Stack
-2. Klicke "Pull & Redeploy" oder "Update"
-3. Das Repository wird neu geklont und der Container neu gebaut
-
-**Via CLI:**
-```bash
-cd /pfad/zum/stack
-git pull
-docker compose build --no-cache
-docker compose up -d
-```
-
-## 📚 Weitere Informationen
-
-- Vollständige Installationsanleitung: [INSTALL.md](INSTALL.md)
-- Technische Dokumentation: [README.md](README.md)
-- GitHub Publishing Guide: [PUBLISH.md](PUBLISH.md)
+| Problem | Prüfung |
+|---|---|
+| Image-Pull schlägt fehl | GHCR-Package öffentlich, Netzwerk und Tag prüfen |
+| Webhook wird abgewiesen | URL, Secret, HMAC-Header und Komodo-Logs prüfen |
+| Container startet wiederholt | Logs, `.env`, Volume-Rechte, Portbelegung |
+| Daten nach Redeploy weg | Volume-Zuordnung und `DB_PATH` prüfen |
+| Fotos fehlen | `UPLOADS_PATH=/app/data/uploads` und Volume prüfen |
+| Login plötzlich ungültig | wurde `JWT_SECRET` ersetzt? |
+| mehrfacher Bestandsabzug | nur eine scheduleraktive Instanz betreiben |

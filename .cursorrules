@@ -1,0 +1,20 @@
+# Tabletto / Cursor
+
+Lies zuerst `AGENTS.md`; es ist das kanonische Regelwerk. Nutze anschließend die
+aufgabenspezifische Referenz unter `docs/`.
+
+- Backend: CommonJS, Route -> Controller -> Model, SQL nur parametrisiert.
+- Jede benutzerbezogene Query muss durch `user_id` begrenzt sein.
+- Frontend: funktionale React-Komponenten; HTTP ausschließlich über
+  `frontend/src/services/api.js`.
+- Keine neue globale State-Library oder DOM-Bibliothek ohne Architekturentscheid.
+- Schemaänderungen benötigen Neuinstallationsschema, idempotente Migration,
+  Import-/Export-Anpassung, Tests und `docs/data-model.md`.
+- Scheduler-Änderungen benötigen Idempotenz- und Zeitzonenprüfung.
+- Keine Secrets, echten Gesundheitsdaten oder generierten Artefakte committen.
+- Nutzertexte sind Deutsch; API-Felder und interne Bezeichner bleiben Englisch.
+- Vor Änderungen `git status --short` prüfen und fremde Änderungen erhalten.
+- Nach Änderungen die Prüfmatrix aus `AGENTS.md` anwenden und Dokumentation
+  synchronisieren.
+
+Bekannte technische Schulden in `AGENTS.md` sind keine Patterns zum Kopieren.

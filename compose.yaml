@@ -1,16 +1,16 @@
+# Produktions-Compose für Tabletto. Der Host zieht ausschließlich das in GHCR
+# veröffentlichte Release-Image; gebaut wird in GitHub Actions.
 services:
   tabletto:
-    build: .
+    image: ghcr.io/oliverbenduhn/tabletto:latest
+    pull_policy: always
     container_name: tabletto-app
     ports:
       - "3000:3000"
-    # Use a named volume for production-stable DB storage. For local dev, you can
-    # replace with a bind mount: ./data:/app/data
     volumes:
       - tabletto-data:/app/data
-      # - ./data:/app/data
     environment:
-      - JWT_SECRET=${JWT_SECRET:-change-this-secret-key-in-production}
+      - JWT_SECRET=${JWT_SECRET}
       - NODE_ENV=production
       - PORT=3000
       - DB_PATH=/app/data/tabletto.db
@@ -18,14 +18,31 @@ services:
       - STOCK_SCHEDULER_CRON=${STOCK_SCHEDULER_CRON:-*/5 * * * *}
       - UPLOADS_PATH=${UPLOADS_PATH:-/app/data/uploads}
       - TZ=${TZ:-Europe/Berlin}
+      - TRUST_PROXY=${TRUST_PROXY:-}
     env_file:
       - .env
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:3000/health" ]
+      test: [ "CMD-SHELL", "curl -fsS http://localhost:3000/health | grep -q '\"status\":\"ok\"'" ]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
 
 volumes:
   tabletto-data:

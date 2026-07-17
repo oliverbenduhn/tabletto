@@ -7,8 +7,5 @@ set -e
 mkdir -p /app/data
 chown -R appuser:appgroup /app/data
 
-# Ensure backend directory is accessible to appuser
-chown -R appuser:appgroup /app/backend
-
 # Drop privileges and exec the application as appuser
 exec gosu appuser "$@"
