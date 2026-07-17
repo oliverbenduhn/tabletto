@@ -12,7 +12,9 @@ function SettingsPage() {
       morning: '08:00',
       noon: '12:00',
       evening: '20:00'
-    }
+    },
+    notificationWeeklyEnabled: false,
+    notificationStatusEnabled: false
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -148,7 +150,45 @@ function SettingsPage() {
             </div>
           </div>
 
-          {/* Kalender-Ansicht */}
+          {/* Benachrichtigungen */}
+        <div className="rounded-3xl border border-gray-100 bg-white/90 p-6 shadow-sm">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Benachrichtigungen per E-Mail</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Empfänger ist deine registrierte E-Mail-Adresse. Beide Benachrichtigungen sind standardmäßig aus.
+          </p>
+          <div className="space-y-3">
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                role="switch"
+                aria-label="Wöchentliche Bestandsinfo-Mail aktivieren"
+                className="mt-1 h-5 w-5 min-h-11 min-w-11 rounded border-gray-300 text-blue-500"
+                checked={preferences.notificationWeeklyEnabled}
+                onChange={(event) => setPreferences(prev => ({ ...prev, notificationWeeklyEnabled: event.target.checked }))}
+              />
+              <span className="flex-1">
+                <span className="block font-medium text-gray-900">Wöchentliche Bestandsinfo-Mail</span>
+                <span className="block text-sm text-gray-600">Sonntag 18:00: Übersicht und auffällige Medikamente.</span>
+              </span>
+            </label>
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                role="switch"
+                aria-label="Statuswarnungen aktivieren"
+                className="mt-1 h-5 w-5 min-h-11 min-w-11 rounded border-gray-300 text-blue-500"
+                checked={preferences.notificationStatusEnabled}
+                onChange={(event) => setPreferences(prev => ({ ...prev, notificationStatusEnabled: event.target.checked }))}
+              />
+              <span className="flex-1">
+                <span className="block font-medium text-gray-900">Statuswarnungen</span>
+                <span className="block text-sm text-gray-600">Mail bei Verschlechterung des Warnstatus (gut → gelb oder rot).</span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        {/* Kalender-Ansicht */}
           <div className="rounded-3xl border border-gray-100 bg-white/90 p-6 shadow-sm">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Kalender-Ansicht</h2>
             <div className="flex gap-3">

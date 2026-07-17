@@ -12,7 +12,7 @@ module.exports = defineConfig({
     ['html', { outputFolder: 'playwright-report', open: 'never' }]
   ],
   use: {
-    baseURL: 'http://127.0.0.1:3000',
+    baseURL: 'http://127.0.0.1:3030',
     locale: 'de-DE',
     timezoneId: 'Europe/Berlin',
     actionTimeout: 10_000,
@@ -37,8 +37,8 @@ module.exports = defineConfig({
     }
   ],
   webServer: {
-    command: 'npm run build:frontend && npm start',
-    url: 'http://127.0.0.1:3000/login',
+    command: 'rm -f /tmp/tabletto-e2e.db && npm run build:frontend && npm start',
+    url: 'http://127.0.0.1:3030/login',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
@@ -46,7 +46,11 @@ module.exports = defineConfig({
       JWT_SECRET: 'tabletto-e2e-only-secret',
       DB_PATH: '/tmp/tabletto-e2e.db',
       ENABLE_STOCK_SCHEDULER: 'false',
-      PORT: '3000'
+      ENABLE_INTERNAL_ENDPOINTS: 'true',
+      SMTP_HOST: '127.0.0.1',
+      SMTP_PORT: '2587',
+      SMTP_FROM: 'tabletto-e2e@example.test',
+      PORT: '3030'
     }
   }
 });
