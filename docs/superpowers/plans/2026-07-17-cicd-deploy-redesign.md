@@ -6,7 +6,7 @@
 
 **Architecture:** `ci.yml` testet (Backend-Unit + Playwright-E2E mit zwei isolierten Webserver-Instanzen) und baut das Image ohne Push. Ein neuer Workflow `release-please.yml` erstellt bei releasebaren Commits auf `main` den Release-PR, merged ihn sofort selbst, erzeugt im zweiten Action-Aufruf Tag + GitHub-Release, pusht das Image nach `ghcr.io/oliverbenduhn/tabletto` (`:X.Y.Z`, `:latest`) und ruft den Komodo-Webhook auf. `compose.yaml` referenziert nur noch das GHCR-Image.
 
-**Tech Stack:** GitHub Actions, googleapis/release-please-action@v4 (Manifest-Modus), docker/build-push-action@v6, GHCR, Playwright, Komodo (GitHub-kompatibler Webhook-Listener mit HMAC-SHA256).
+**Tech Stack:** GitHub Actions, googleapis/release-please-action@v4 (Manifest-Modus), docker/build-push-action@v7, GHCR, Playwright, Komodo (GitHub-kompatibler Webhook-Listener mit HMAC-SHA256).
 
 **Spec:** `docs/superpowers/specs/2026-07-17-cicd-deploy-redesign-design.md` (verbindlich), ADRs 0002–0005 in `docs/adr/`.
 

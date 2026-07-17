@@ -73,7 +73,7 @@ ersetzt beim Merge den Node-18-Stand auf `main`. Änderungen:
   frischer SQLite. Damit läuft jede Spec auf
   beiden Projekten, ohne dass persistente Server-State zwischen Projekten
   geteilt wird.
-- **Docker-Job bleibt Build-only:** `docker/build-push-action` mit
+- **Docker-Job bleibt Build-only:** `docker/build-push-action@v7` mit
   `push: false`, Image-Build auf PR und `main`-Push. Es entsteht **kein**
   `packages: write`-Bedarf mehr auf `ci.yml`. Permissions reduzieren sich
   auf die Default-Werte (`contents: read`). Gepushed wird ausschließlich
@@ -103,9 +103,9 @@ ersetzt beim Merge den Node-18-Stand auf `main`. Änderungen:
   `GITHUB_TOKEN`-Rekursionsschutzes keine erneuten Workflow-Runs.
 - **Image-Build und Push** (im selben Workflow, konditional auf den
   Action-Output `release_created`):
-  1. Checkout, `docker/setup-buildx-action@v3`,
-     `docker/login-action@v3` gegen `ghcr.io` mit `GITHUB_TOKEN`.
-  2. `docker/build-push-action@v6` mit `push: true` und Tags
+  1. Checkout, `docker/setup-buildx-action@v4`,
+     `docker/login-action@v4` gegen `ghcr.io` mit `GITHUB_TOKEN`.
+  2. `docker/build-push-action@v7` mit `push: true` und Tags
      `:X.Y.Z` und `:latest`. Permissions für den Workflow:
      `contents: write`, `packages: write`, `pull-requests: write`.
   3. Kein Node-Setup im Runner — der Frontend-Build passiert im
