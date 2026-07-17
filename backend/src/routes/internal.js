@@ -5,6 +5,7 @@
 
 const express = require('express');
 const { runStatusDetectionNow, runWeeklyDigestNow } = require('../services/notificationScheduler');
+const { disableSmtpForTesting } = require('../services/notifications');
 const { getDatabase, enqueueWrite } = require('../config/database');
 
 const router = express.Router();
@@ -27,6 +28,14 @@ router.post('/test/reset-notifications', async (req, res) => {
     db.run('UPDATE users SET notification_weekly_enabled = 0, notification_status_enabled = 0'),
     db.run('UPDATE medications SET last_notified_status = NULL')
   ]));
+  res.json({ ok: true });
+});
+
+// Test helper: clear SMTP env vars and drop the cached transporter so the
+// mail module returns the no-op path. Used to verify "SMTP not configured"
+// behaviour without restarting the server.
+router.post('/test/disable-smtp', (req, res) => {
+  disableSmtpForTesting();
   res.json({ ok: true });
 });
 

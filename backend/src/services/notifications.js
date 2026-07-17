@@ -30,8 +30,13 @@ function getTransporter() {
   return transporter;
 }
 
-function setTransporterForTesting(transport) {
-  transporter = transport;
+// Test helper: drop the cached transporter and clear SMTP env vars so the
+// mail module falls back to the no-op path. Used by the E2E suite to verify
+// "SMTP not configured" behaviour without restarting the server.
+function disableSmtpForTesting() {
+  transporter = null;
+  delete process.env.SMTP_HOST;
+  delete process.env.SMTP_FROM;
 }
 
 async function sendMail({ to, subject, text }) {
@@ -70,7 +75,7 @@ function renderWeeklyDigest(user, medications, enriched) {
   const flagged = [];
   for (let i = 0; i < medications.length; i += 1) {
     const status = enriched[i].warning_status;
-    counts[status] = (counts[status] || 0) + 1;
+    counts[status] += 1;
     if (status === 'critical' || status === 'warning') {
       flagged.push({ name: medications[i].name, status, depletion_date: enriched[i].depletion_date });
     }
@@ -131,5 +136,5 @@ module.exports = {
   sendMail,
   renderWeeklyDigest,
   renderStatusWarning,
-  setTransporterForTesting
+  disableSmtpForTesting
 };

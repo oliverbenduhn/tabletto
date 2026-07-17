@@ -19,10 +19,6 @@ const {
 
 let weeklyTask = null;
 
-// Status rank for transition detection. Recoveries are transitions downward
-// in this ordering and never trigger a mail.
-const STATUS_RANK = { good: 0, warning: 1, critical: 2 };
-
 function isWorsening(oldStatus, newStatus) {
   if (newStatus === 'critical') return oldStatus !== 'critical';
   if (newStatus === 'warning') return oldStatus === null || oldStatus === 'good';
@@ -93,7 +89,6 @@ async function runWeeklyDigestNow() {
 }
 
 function startNotificationScheduler() {
-  if (process.env.ENABLE_NOTIFICATION_SCHEDULER === 'false') return;
   if (weeklyTask) return;
   // Sunday 18:00 in the configured TZ. node-cron uses Sunday=0.
   const expression = process.env.WEEKLY_DIGEST_CRON || '0 18 * * 0';
