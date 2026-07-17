@@ -91,7 +91,7 @@ jobs:
             echo "tag=$TAG"
           } >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         if: steps.rel.outputs.created == 'true'
         with:
           ref: ${{ steps.rel.outputs.tag }}

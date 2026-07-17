@@ -10,6 +10,13 @@
 
 **Spec:** `docs/superpowers/specs/2026-07-17-cicd-deploy-redesign-design.md` (verbindlich), ADRs 0002–0005 in `docs/adr/`.
 
+> **Umsetzungshinweis (2026-07-17):** Die kritische Prüfung hat den Release-
+> Trigger auf `workflow_run` nach erfolgreicher CI, eine Recovery für bereits
+> erzeugte Releases, `bootstrap-sha` für den nie getaggten 1.5.0-Stand sowie die
+> aktuellen Node-24-basierten Action-Majors ergänzt. Maßgeblich sind der
+> implementierte Workflow, die aktualisierte Spec und ADRs; die Task-Snippets
+> darunter dokumentieren den ursprünglichen Planungsstand.
+
 ## Global Constraints
 
 - Node ≥ 20.17 (engines in `backend/package.json` und `frontend/package.json`); CI und Dockerfile nutzen Node 22.
