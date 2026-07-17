@@ -7,6 +7,14 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 
 ## [Unreleased]
 
+### Benachrichtigungen
+
+- optionale E-Mail-Benachrichtigungen pro Benutzer (Opt-in): wöchentliche
+  Bestandsinfo-Mail sonntags 18:00 sowie konsolidierte Statuswarnung bei
+  Verschlechterung des Warnstatus; SMTP global über `.env`
+- Glossar (`CONTEXT.md`) und ADR zur SMTP-Konfiguration in der
+  Backend-Umgebung ergänzt
+
 ### Sicherheit und Zuverlässigkeit
 
 - Produktionsstart ohne echtes `JWT_SECRET` unterbunden und Security-Header ergänzt

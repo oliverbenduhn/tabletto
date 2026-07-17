@@ -296,7 +296,9 @@ Fehler: `400` ungültiges neues Passwort, `401` falsches aktuelles Passwort,
       "morning": "08:00",
       "noon": "12:00",
       "evening": "20:00"
-    }
+    },
+    "notificationWeeklyEnabled": false,
+    "notificationStatusEnabled": false
   }
 }
 ```
@@ -313,7 +315,9 @@ Partielle Aktualisierung:
     "morning": "07:30",
     "noon": "12:30",
     "evening": "20:30"
-  }
+  },
+  "notificationWeeklyEnabled": true,
+  "notificationStatusEnabled": false
 }
 ```
 
@@ -322,6 +326,11 @@ Zulässig:
 - Dashboard: `grid`, `list`
 - Kalender: `dayGridMonth`, `listMonth`
 - Uhrzeiten: `HH:MM`, 24-Stunden-Format
+- Benachrichtigungs-Toggles: Booleans (nur echte Booleans, Strings → `400`)
+
+Empfänger aller Benachrichtigungen ist die registrierte E-Mail-Adresse des
+Benutzers. SMTP-Zugangsdaten verlassen das Backend nie und tauchen in keiner
+API-Antwort auf.
 
 Response: `{ "preferences": <aktuelle Präferenzen> }`.
 

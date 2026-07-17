@@ -96,6 +96,8 @@ API-Antworten werden nicht persistiert. Logout entfernt zusätzlich eventuell au
 - `JWT_SECRET` rotieren, wenn Offenlegung vermutet wird; alle Tokens werden
   dadurch ungültig.
 - Produktionsbackups verschlüsseln und getrennt vom Anwendungsserver lagern.
+- `SMTP_*`-Variablen bleiben im Backend; sie werden ausschließlich vom
+  Mailmodul gelesen und tauchen in keiner API-Antwort oder im PWA-Frontend auf.
 
 ## Container
 

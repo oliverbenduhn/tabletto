@@ -70,6 +70,8 @@ erDiagram
 | `dose_time_morning` | TEXT | ja | `08:00` | lokale Uhrzeit `HH:MM` |
 | `dose_time_noon` | TEXT | ja | `12:00` | lokale Uhrzeit `HH:MM` |
 | `dose_time_evening` | TEXT | ja | `20:00` | lokale Uhrzeit `HH:MM` |
+| `notification_weekly_enabled` | INTEGER | nein | `0` | Opt-in für wöchentliche Bestandsinfo-Mail |
+| `notification_status_enabled` | INTEGER | nein | `0` | Opt-in für Statuswarnungen |
 | `created_at` | DATETIME | ja | aktuelle DB-Zeit | Registrierung |
 | `last_login` | DATETIME | ja | null | letzter erfolgreicher Login |
 
@@ -93,6 +95,7 @@ garantiert.
 | `interval_days` | INTEGER | ja | `1` | Tage zwischen Einnahmen |
 | `dosage_per_interval` | REAL | ja | `0` | Dosis eines Intervalltermins |
 | `next_due_at` | DATETIME | ja | null | nächster Fälligkeitstermin |
+| `last_notified_status` | TEXT | ja | null | Idempotenzmarker für Statuswarnungen (`good`/`warning`/`critical`) |
 | `created_at` | DATETIME | ja | aktuelle DB-Zeit | Anlagezeit |
 | `updated_at` | DATETIME | ja | aktuelle DB-Zeit | letzte fachliche Änderung |
 | `last_stock_measured_at` | DATETIME | ja | aktuelle DB-Zeit | letzte manuelle Mess-/Änderungsbasis |
@@ -199,6 +202,8 @@ Nach dem Basisschema prüft `database.js` derzeit:
 4. `users.dashboard_view` und `users.calendar_view`
 5. `medications.interval_days`, `dosage_per_interval`, `next_due_at`
 6. `users.dose_time_morning`, `dose_time_noon`, `dose_time_evening`
+7. `users.notification_weekly_enabled`, `notification_status_enabled`
+8. `medications.last_notified_status`
 
 Die Migrationen sind spaltenweise idempotent. Ein Fehler bricht den Start ab,
 damit kein teilweise migriertes Schema als betriebsbereit erscheint.

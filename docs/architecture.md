@@ -190,6 +190,26 @@ Bei Intervallmedikamenten wird `next_due_at` nach einem Abzug um
 `interval_days` weitergeschoben. Bestände werden mit `Math.max(0, ...)` bei null
 begrenzt. Jeder automatische Abzug erzeugt einen History-Eintrag.
 
+## Benachrichtigungen
+
+Die Statuserkennung läuft am Ende jedes Scheduler-Ticks: für jeden Benutzer
+mit aktivem Status-Toggle wird der aktuelle `warning_status` ermittelt und
+gegen `medications.last_notified_status` verglichen. Verschlechterungen
+(`good → warning`, `good → critical`, `warning → critical`) lösen eine
+konsolidierte E-Mail pro Benutzer aus; Erholungen aktualisieren nur den
+Marker, ohne Mail. SMTP-Fehler werden geloggt und schluckt; das eigentliche
+Funktionsverhalten ist davon unabhängig.
+
+Die wöchentliche Bestandsinfo-Mail feuert sonntags um 18:00 Europe/Berlin
+(`WEEKLY_DIGEST_CRON` überschreibbar) und iteriert Benutzer mit aktivem
+Toggle. Sie enthält Counts je Warnstatus und eine Liste der Medikamente mit
+ kritischem oder gelbem Status samt Leerstandsdaten. Grüne Medikamente werden
+bewusst weggelassen.
+
+SMTP-Zugangsdaten werden ausschließlich aus der Backend-Umgebung gelesen.
+Fehlt `SMTP_HOST` oder `SMTP_FROM`, ist das Mailmodul ein No-Op; Scheduler
+und API bleiben voll funktionsfähig.
+
 ## Import und Export
 
 ```mermaid

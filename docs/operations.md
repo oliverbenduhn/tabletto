@@ -47,6 +47,13 @@ docker compose logs -f tabletto
 | `STOCK_SCHEDULER_CRON` | `*/5 * * * *` | zur Einnahmefensterlogik passend |
 | `TZ` | `Europe/Berlin` | Standortzeitzone |
 | `FIX_OPTION` | `a` im Korrekturskript | nur bei bewusster Reparatur |
+| `SMTP_HOST` | nicht gesetzt | SMTP-Host für E-Mail-Benachrichtigungen |
+| `SMTP_PORT` | `587` | SMTP-Port |
+| `SMTP_SECURE` | `false` | `true` für implizites TLS |
+| `SMTP_USER` | nicht gesetzt | SMTP-Auth-Benutzer |
+| `SMTP_PASS` | nicht gesetzt | SMTP-Auth-Passwort |
+| `SMTP_FROM` | nicht gesetzt | Absender (`From`) der Benachrichtigungen |
+| `WEEKLY_DIGEST_CRON` | `0 18 * * 0` | Sonntag 18:00 Europe/Berlin |
 
 Änderungen an `JWT_SECRET` melden alle bestehenden Benutzer effektiv ab.
 
