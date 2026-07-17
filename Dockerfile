@@ -22,6 +22,8 @@ COPY backend/ ./backend/
 # Production image
 FROM node:22-bookworm-slim
 
+ARG APP_VERSION=dev
+
 WORKDIR /app
 
 # Copy backend (with installed node_modules from builder)
@@ -49,7 +51,9 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV DB_PATH=/app/data/tabletto.db
 
-LABEL name="Tabletto" description="Tabletto - Medikamentenverwaltung" version="1.5.0"
+LABEL name="Tabletto" \
+      description="Tabletto - Medikamentenverwaltung" \
+      org.opencontainers.image.version="$APP_VERSION"
 
 EXPOSE 3000
 
