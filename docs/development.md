@@ -68,7 +68,6 @@ npm start
 | `npm run test:e2e` | Playwright headless |
 | `npm run test:e2e:headed` | Playwright mit sichtbarem Browser |
 | `npm run test:e2e:report` | letzten HTML-Report öffnen |
-| `npm run version:sync` | Root-Version in Teilpakete synchronisieren |
 | `npm --prefix backend run backup` | konsistenter SQLite-Snapshot inklusive Uploads |
 
 `npm test --prefix backend` führt Kern- und Migrationstests aus. API- und
@@ -150,15 +149,10 @@ Umbauten unter Produktionslast durchführen.
 
 ## Versionierung
 
-Die kanonische Projektversion steht in `package.json`. Danach:
-
-```bash
-npm run version:sync
-```
-
-Das Skript aktualisiert Backend- und Frontend-Paketversion. Der Header liest die
-Frontend-Paketversion zur Build-Zeit. Docker-Label, Exportformat und Changelog
-müssen derzeit separat geprüft werden.
+Release-Please aktualisiert Root-, Backend- und Frontend-Paketversion sowie das
+Changelog automatisch. Der Header liest die Frontend-Paketversion zur Build-Zeit;
+das Release-Image erhält die Version über `APP_VERSION`. Der vollständige Ablauf
+steht in [`PUBLISH.md`](../PUBLISH.md).
 
 ## Debugging
 

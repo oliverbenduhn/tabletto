@@ -5,8 +5,9 @@ Das einzige Docker-Image, das in Produktion läuft, kommt aus
 PR und `main`-Push, pusht aber nirgendwo hin. Der Release-Workflow
 pusht die Tags `:X.Y.Z` und `:latest` nach GHCR, sobald release-please
 einen Release erzeugt hat. Komodo zieht `:latest` per Webhook-Trigger
-aus GHCR und baut nicht selbst. Damit ist das getestete Artefakt
-identisch mit dem deployten Artefakt; lokale `git pull`-basierte
-Builds auf dem Prod-Host entfallen. Geprüfte Alternativen waren
+aus GHCR und baut nicht selbst. CI und Release verwenden denselben geprüften
+Quellstand und Dockerfile; der Release-Workflow baut das Image nach erfolgreicher
+CI neu, statt den CI-Build byte-identisch wiederzuverwenden. Lokale
+`git pull`-basierte Builds auf dem Prod-Host entfallen. Geprüfte Alternativen waren
 „Komodo baut weiter aus Git" (entkoppelt CI- und Prod-Artefakt) und
 „CI pusht zusätzlich auf `:main`" (Artefakt ohne Konsument, GHCR-Ballast).

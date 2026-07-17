@@ -1,130 +1,88 @@
 # Releases veröffentlichen
 
-Tabletto verwendet Semantic Versioning, Git-Tags `vMAJOR.MINOR.PATCH` und den
-GitHub-Workflow `.github/workflows/release.yml`.
+Tabletto verwendet Semantic Versioning, Conventional Commits und
+`release-please`. Releases entstehen nach erfolgreicher CI automatisch; Tags,
+GitHub-Releases und Produktionsimages werden nicht manuell erstellt.
 
 ## Voraussetzungen
 
-- sauberer, geprüfter Release-Commit auf `main`
-- Schreibrecht für Repository und Tags
-- GitHub Actions aktiviert
-- aktualisiertes `CHANGELOG.md`
-- erfolgreiches Frontend- und Docker-Build
-- vollständiges Backup und Migrationshinweise bei Schemaänderungen
+- GitHub Actions darf Pull Requests und Releases schreiben sowie Pakete nach
+  GHCR pushen.
+- Das GHCR-Package `ghcr.io/oliverbenduhn/tabletto` ist öffentlich, damit der
+  Produktionshost ohne Registry-Credentials pullen kann.
+- `KOMODO_WEBHOOK_URL` und `KOMODO_WEBHOOK_SECRET` sind als GitHub-Secrets
+  hinterlegt.
+- Nur während der Einrichtung darf die Repository-Variable
+  `DEPLOY_WEBHOOK_OPTIONAL=true` den fehlenden Deploy-Webhook tolerieren.
 
-## Versionsquellen
+Der automatische Squash-Merge des Release-PRs setzt voraus, dass die
+Branch-Protection dem `GITHUB_TOKEN` diesen Merge erlaubt. Der Workflow prüft
+einen tatsächlichen synchronen Merge und wird andernfalls rot; er merkt keinen
+späteren Auto-Merge vor.
 
-Die beabsichtigte kanonische Version steht in `package.json`. Synchronisiert
-werden:
+## Ablauf
 
-```bash
-npm run version:sync
-```
+1. Ein Conventional Commit landet auf `main`.
+2. `ci.yml` führt Backend- und E2E-Tests aus und baut das Docker-Image ohne Push.
+3. Erst nach erfolgreicher CI erstellt oder aktualisiert `release-please.yml`
+   den Release-PR und merged ihn sofort per Squash.
+4. Ein zweiter Release-Please-Aufruf erzeugt Tag `vX.Y.Z` und GitHub-Release.
+5. Der Workflow baut den Release-Stand und pusht
+   `ghcr.io/oliverbenduhn/tabletto:X.Y.Z` sowie `:latest`.
+6. Der signierte Komodo-Webhook löst den Redeploy aus.
 
-Das Skript aktualisiert:
+Der Release-PR aktualisiert `CHANGELOG.md`, die Rootversion sowie
+`backend/package.json` und `frontend/package.json`. Die UI liest beim Build die
+Frontend-Paketversion. Die Image-Metadaten erhalten dieselbe Version über das
+Build-Argument `APP_VERSION`.
 
-- `backend/package.json`
-- `frontend/package.json`
+Für die einmalige Einführung begrenzt `bootstrap-sha` die Historie auf den
+vorhandenen 1.5.0-Bump-Commit. Das ist nötig, weil der Paketstand 1.5.0 nie als
+GitHub-Tag veröffentlicht wurde; der letzte alte Release ist `v1.3.0`.
 
-Zusätzlich manuell prüfen:
+Der Bump-Commit selbst startet wegen des GitHub-Token-Rekursionsschutzes keine
+weitere CI. Dieses Restrisiko ist akzeptiert, weil er ausschließlich
+deterministische Versions- und Changelog-Änderungen enthält. Das Release-Image
+wird aus diesem Stand neu gebaut; CI- und Release-Build verwenden denselben
+Dockerfile, sind aber keine byte-identische Wiederverwendung desselben Builds.
 
-- beide Lockfiles der Teilprojekte
-- Root-Lockfile
-- Docker-Label in `Dockerfile`
-- `CHANGELOG.md`
-- Exportformatversion in `dataController.js`, falls das Format geändert wurde
+## Conventional Commits
 
-Die UI liest die Frontend-Paketversion beim Build. Ein alter Kommentar im
-Versionsskript erwähnt einen direkten Header-String; maßgeblich ist der aktuelle
-Headercode.
+- `fix:` erzeugt einen Patch-Release.
+- `feat:` erzeugt einen Minor-Release.
+- `feat!:`/`fix!:` oder ein `BREAKING CHANGE:`-Footer erzeugt einen
+  Major-Release.
+- Commits ohne releasebaren Typ werden gesammelt, lösen aber allein keinen
+  Release aus.
 
-## Release-Checkliste
-
-1. Zielversion und Breaking-Change-Charakter bestimmen.
-2. Version in `package.json` ändern.
-3. `npm run version:sync` ausführen.
-4. Lockfiles mit dem vorgesehenen npm aktualisieren.
-5. `CHANGELOG.md` mit Datum und konkreten Änderungen ergänzen.
-6. Dokumentation und bekannte Einschränkungen synchronisieren.
-7. Prüfungen ausführen.
-8. Release-Commit erstellen und nach `main` bringen.
-9. signierten oder annotierten Tag setzen und pushen.
-10. GitHub-Workflow und erzeugtes Release prüfen.
-
-## Prüfungen
-
-```bash
-npm ci
-npm ci --prefix backend
-npm ci --prefix frontend
-npm run build:frontend
-npm run test:e2e
-docker build -t tabletto:release-candidate .
-```
-
-Zusätzlich einen Container mit temporärem Volume starten und mindestens Login,
-Persistenz, Uploads und – nach Korrektur der bekannten Route – den JSON-Health
-Check prüfen.
-
-Bei Schemaänderungen außerdem:
-
-- frische Datenbank initialisieren,
-- repräsentative Vorversion migrieren,
-- Daten und Foreign Keys prüfen,
-- Rollback-/Restore-Verfahren dokumentieren.
-
-## Commit und Tag
-
-Beispiel für Version `1.6.0`:
+Eine Version kann explizit erzwungen werden:
 
 ```bash
-git add package.json package-lock.json \
-  backend/package.json backend/package-lock.json \
-  frontend/package.json frontend/package-lock.json \
-  Dockerfile CHANGELOG.md
-git commit -m "chore: release 1.6.0"
-git tag -a v1.6.0 -m "Tabletto 1.6.0"
+git commit --allow-empty -m "chore: release 2.0.0" -m "Release-As: 2.0.0"
 git push origin main
-git push origin v1.6.0
 ```
 
-Vor `git add` den tatsächlichen Diff prüfen und keine fremden Änderungen oder
-lokalen Daten versehentlich aufnehmen.
+## Recovery und Verifikation
 
-## GitHub-Release-Workflow
+Bricht ein Lauf nach dem Release-PR-Merge ab, `Release` in GitHub Actions über
+`workflow_dispatch` erneut starten. Der erste Release-Please-Aufruf erkennt den
+gemergten PR; dessen Outputs werden mit denen des optionalen zweiten Aufrufs
+konsolidiert.
 
-Ein Tag passend zu `v*.*.*` startet den Workflow:
+Existiert der GitHub-Release bereits, aber Image-Push oder Webhook schlug danach
+fehl, beim manuellen Start dessen `X.Y.Z` als `version` angeben. Ohne Eingabe
+wird bewusst der neueste GitHub-Release erneut nach GHCR veröffentlicht und
+deployed.
 
-1. Checkout
-2. Versionsableitung aus dem Tag
-3. Node.js 18
-4. Backend- und Frontendinstallation
-5. Frontend-Build
-6. lokaler Docker-Image-Build
-7. GitHub Release mit automatisch erzeugten Notes
+Nach einem echten Release prüfen:
 
-Der Workflow veröffentlicht das gebaute Docker-Image nicht in eine Registry und
-führt derzeit keine Playwright-Tests aus. Diese Prüfungen müssen vor dem Tag
-erfolgreich gelaufen sein.
+- CI und Release-Workflow sind grün.
+- Tag `vX.Y.Z`, GitHub-Release und beide GHCR-Tags existieren.
+- das Image-Label `org.opencontainers.image.version` ist `X.Y.Z`.
+- Komodo hat neu deployed und `/health` liefert `{"status":"ok"}`.
+- Login, Persistenz und Fotos funktionieren; bei Migrationen zusätzlich den
+  dokumentierten Restore-Test durchführen.
 
-## Release verifizieren
-
-- GitHub Action grün
-- Tag zeigt auf den beabsichtigten Commit
-- Release Notes stimmen mit Changelog überein
-- Quellarchiv enthält keine `.env`, DB oder Uploads
-- Build aus dem Tag erfolgreich
-- angezeigte UI-Version stimmt
-- Installations- und Updateanleitung funktionieren
-
-## Fehlerhaftes Release
-
-Einen veröffentlichten Tag nicht stillschweigend neu setzen. Stattdessen:
-
-1. Auswirkung dokumentieren.
-2. bei Sicherheitsproblemen betroffene Nutzer informieren und Secretrotation
-   bewerten.
-3. korrigierende Patchversion erstellen.
-4. bei Datenrisiko Deployment stoppen und Restore-Anleitung bereitstellen.
-5. GitHub-Release nur als fehlerhaft markieren oder entfernen, wenn die
-   Repositoryrichtlinie dies vorsieht; Git-Historie nachvollziehbar lassen.
+Einen fehlerhaften Tag nicht verschieben. Stattdessen Auswirkung dokumentieren,
+bei Datenrisiko das Deployment stoppen und einen korrigierenden Patch-Release
+erstellen.

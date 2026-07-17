@@ -39,7 +39,8 @@ TZ=Europe/Berlin
 ### 2. Bauen und starten
 
 ```bash
-docker compose up -d --build
+docker compose pull tabletto
+docker compose up -d
 docker compose ps
 docker compose logs --tail=100 tabletto
 ```
@@ -124,7 +125,7 @@ Details: [Betrieb](docs/operations.md) und [Sicherheit](docs/security.md).
 
 ```bash
 git pull --ff-only
-docker compose build --pull tabletto
+docker compose pull tabletto
 docker compose up -d
 docker compose logs --tail=100 tabletto
 ```

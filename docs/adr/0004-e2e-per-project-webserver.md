@@ -1,10 +1,10 @@
 # E2E: Per-Projekt-Webserver mit eigener SQLite-Datenbank
 
-Playwright-Projekte in `playwright.config.js` definieren jeweils ihren
-eigenen `webServer`-Block mit einer eigenen `DB_PATH`
-(`/tmp/tabletto-e2e-{desktop,mobile}.db`). Der vorherige globale
-`webServer` entfällt. Damit hat jedes Projekt einen eigenen
-Backend-Prozess mit frischer SQLite-Datenbank, und persistenter
+Das globale `webServer`-Array in `playwright.config.js` startet für die beiden
+Playwright-Projekte je einen Server mit eigener `DB_PATH`
+(`/tmp/tabletto-e2e-{desktop,mobile}.db`). Damit hat jedes Projekt einen eigenen
+Backend-Prozess mit frischer SQLite-Datenbank. Die projektspezifische `baseURL`
+wählt den passenden Server, und persistenter
 Server-State (Notification-Dedup-Tabellen, History-Einträge,
 Settings-Defaults) wird nicht mehr zwischen Projekten geteilt. Die
 Ursache der ursprünglich 11 fehlgeschlagenen Notification-Tests auf

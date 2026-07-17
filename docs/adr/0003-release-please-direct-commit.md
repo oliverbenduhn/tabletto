@@ -5,9 +5,14 @@ aber ohne manuellen Eingriff: Der Workflow lässt die Action bei jedem
 Push auf `main` den Release-PR erstellen bzw. aktualisieren
 (Versionsbumps in `package.json` von Root, `backend/`, `frontend/` via
 `extra-files`, plus `CHANGELOG.md`), merged diesen PR im selben Lauf
-sofort per Squash und ruft die Action ein zweites Mal auf, die dann Tag
+synchron per GitHub-API und ruft die Action ein zweites Mal auf, die dann Tag
 `vX.Y.Z` und GitHub-Release erzeugt. Aus Maintainer-Sicht verhält sich
 das wie ein Direkt-Commit.
+
+Der Workflow startet erst nach erfolgreicher `main`-CI. Der Merge-Aufruf muss
+unmittelbar `merged: true` liefern; ein nur vorgemerkter Auto-Merge reicht nicht,
+weil ein durch `GITHUB_TOKEN` ausgeführter späterer Merge keinen Folgelauf
+auslösen würde. Branch-Protection muss den Bot-Merge daher zulassen.
 
 Ein echter Direkt-Commit-Modus existiert in release-please nicht: die
 ursprünglich angenommene Option `pull-request: false` gibt es nicht,

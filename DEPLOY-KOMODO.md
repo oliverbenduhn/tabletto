@@ -1,28 +1,29 @@
 # Tabletto mit Komodo deployen
 
-Diese Anleitung ergänzt das allgemeine [Betriebshandbuch](docs/operations.md)
-für ein Git-basiertes Komodo-Deployment.
+Diese Anleitung ergänzt das [Betriebshandbuch](docs/operations.md). Komodo baut
+Tabletto nicht selbst, sondern zieht das von GitHub Actions veröffentlichte
+Release-Image aus GHCR.
 
 ## Voraussetzungen
 
 - Komodo mit Zugriff auf einen Docker-Host
-- vom Host erreichbares GitHub-Repository
+- Zugriff auf das öffentliche Package `ghcr.io/oliverbenduhn/tabletto`
 - persistenter Docker-Speicher
 - optional Domain und bestehender HTTPS-Reverse-Proxy
 
 ## Stack anlegen
 
-In Komodo einen neuen Stack mit folgenden Werten erstellen:
-
 | Feld | Wert |
 |---|---|
 | Name | `tabletto` |
 | Repository | `https://github.com/oliverbenduhn/tabletto.git` |
-| Branch | `main` oder ein bewusst fixierter Release-Tag |
+| Branch | `main` |
 | Compose-Pfad | `compose.yaml` |
 
-Für reproduzierbare Produktion ist ein Release-Tag sicherer als der bewegliche
-`main`-Branch.
+Die Repository-Referenz liefert die Compose-Konfiguration; der Container selbst
+kommt aus `ghcr.io/oliverbenduhn/tabletto:latest`. Für ein fest gepinntes
+Deployment in Komodo beziehungsweise `compose.yaml` den Image-Tag auf eine
+Version wie `1.6.0` setzen. Image-Tags tragen kein führendes `v`.
 
 ## Variablen und Secrets
 
@@ -41,89 +42,69 @@ Bei Domainbetrieb:
 FRONTEND_ORIGIN=https://tabletto.example.org
 ```
 
-`JWT_SECRET` als geschütztes Secret in Komodo hinterlegen, nicht in das
-Repository oder die Compose-Datei schreiben. Ein Wechsel macht bestehende JWTs
-ungültig.
+`JWT_SECRET` geschützt in Komodo hinterlegen. Ein Wechsel macht bestehende JWTs
+ungültig. SMTP-Zugangsdaten werden ebenfalls nur als Umgebungsvariablen oder
+Komodo-Secrets gesetzt.
 
-## Deployment
+## Webhook-Deploy
 
-1. Stackkonfiguration speichern.
-2. Build und Deployment starten.
-3. Buildlog auf Vite-, SQLite- und Dockerfehler prüfen.
-4. Containerstatus und Logs öffnen.
-5. Anwendung aufrufen und Registrierung/Login testen.
+1. Am Tabletto-Stack in Komodo den GitHub-kompatiblen Deploy-Webhook aktivieren
+   und die `/deploy`-URL kopieren.
+2. Das globale beziehungsweise ressourcenspezifische Komodo-Webhook-Secret als
+   GitHub-Secret `KOMODO_WEBHOOK_SECRET` hinterlegen.
+3. Die URL als GitHub-Secret `KOMODO_WEBHOOK_URL` hinterlegen.
+4. Nach erfolgreicher Einrichtung die Übergangsvariable
+   `DEPLOY_WEBHOOK_OPTIONAL` entfernen.
 
-Die Daten werden im benannten Volume `tabletto-data` unter `/app/data`
-persistiert. Prüfen, dass ein Redeploy dieses Volume wiederverwendet.
+Der Release-Workflow sendet einen Push-Body für `main` und signiert ihn als
+HMAC-SHA256 im Header `X-Hub-Signature-256`. Fehlende Secrets oder ein
+fehlgeschlagener Aufruf machen den Workflow standardmäßig rot; das bereits
+gepushte Image kann dann in Komodo manuell deployed werden.
+
+## Deployment und Verifikation
+
+1. Stackkonfiguration speichern und deployen. `pull_policy: always` zieht das
+   aktuelle Release-Image.
+2. Containerstatus und Logs prüfen.
+3. Registrierung/Login sowie Persistenz testen.
+4. Sicherstellen, dass ein Redeploy das Volume `tabletto-data` wiederverwendet.
+
+```bash
+curl -fsS https://tabletto.example.org/health
+```
+
+Erwartet wird `{"status":"ok"}`. Zusätzlich Medikament anlegen, Foto laden und
+einen Containerneustart prüfen. Nur eine scheduleraktive Instanz betreiben.
 
 ## Reverse Proxy
 
-Der Proxy leitet auf Host beziehungsweise Containerport 3000. Für Traefik können
-projektspezifisch Labels ergänzt werden, beispielsweise:
+Der Proxy leitet auf Port 3000. Für Traefik können installationsspezifische
+Labels ergänzt werden. Port 3000 nach erfolgreicher Proxyanbindung nicht
+zusätzlich öffentlich exponieren und `FRONTEND_ORIGIN` auf die exakte
+HTTPS-Origin setzen.
 
-```yaml
-services:
-  tabletto:
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.tabletto.rule=Host(`tabletto.example.org`)"
-      - "traefik.http.routers.tabletto.entrypoints=websecure"
-      - "traefik.http.routers.tabletto.tls=true"
-      - "traefik.http.services.tabletto.loadbalancer.server.port=3000"
-```
+## Backup, Update und Rollback
 
-Netzwerkname, Zertifikatsresolver und EntryPoints müssen zur lokalen
-Traefik-Installation passen. Port 3000 nach erfolgreicher Proxyanbindung nicht
-zusätzlich öffentlich exponieren.
+Vor jedem Update Datenbank und Uploads gemeinsam sichern; das Offline-Verfahren
+und der Restore-Ablauf stehen im [Betriebshandbuch](docs/operations.md).
+Backups nicht ausschließlich im Anwendungsvolume aufbewahren.
 
-## Health und Verifikation
+Ein normales Update entsteht durch einen automatischen Release. Der Webhook
+deployed anschließend `:latest`; alternativ in Komodo manuell „Redeploy“
+auslösen.
 
-```bash
-curl -i https://tabletto.example.org/health
-```
-
-Nicht nur Status 200 prüfen, sondern JSON-Body und `Content-Type`. Im aktuellen
-Code kann die SPA-Wildcard den Health-Endpunkt abfangen.
-
-Zusätzliche Smoke-Tests:
-
-- Registrierung und Login
-- Medikament anlegen und neu laden
-- Foto hochladen und nach Redeploy anzeigen
-- Container neu starten und Datenpersistenz prüfen
-- Schedulerlog nur bei bewusst aktiviertem Scheduler kontrollieren
-
-## Backup vor Updates
-
-Komodo-Redeploys schützen nicht vor Schema- oder Bedienfehlern. Vor jedem Update
-Datenbank und Uploads gemeinsam sichern. Das sichere Offline-Verfahren und der
-Restore-Ablauf stehen in [docs/operations.md](docs/operations.md).
-
-Backups nicht ausschließlich im Volume `tabletto-data` aufbewahren.
-
-## Update und Rollback
-
-1. Release Notes und Migrationen prüfen.
-2. vollständiges Backup erstellen.
-3. Repository-Referenz auf den Ziel-Tag ändern oder neuen Stand pullen.
-4. Build und Redeploy ausführen.
-5. Logs, Login, Daten und Fotos prüfen.
-
-Für Rollback die vorherige Image-/Tag-Version deployen. Da Migrationen keinen
-Down-Pfad haben, kann zusätzlich ein Daten-Restore erforderlich sein.
+Für einen Rollback den Image-Tag auf die vorherige Version, zum Beispiel
+`1.5.0`, setzen und redeployen. Bei inkompatiblen Datenbankmigrationen reicht
+ein Image-Rollback nicht; dann zusätzlich den passenden Datenstand restaurieren.
 
 ## Häufige Fehler
 
 | Problem | Prüfung |
 |---|---|
-| Build läuft aus Speicher | Buildhost-RAM erhöhen, Buildlog prüfen |
+| Image-Pull schlägt fehl | GHCR-Package öffentlich, Netzwerk und Tag prüfen |
+| Webhook wird abgewiesen | URL, Secret, HMAC-Header und Komodo-Logs prüfen |
 | Container startet wiederholt | Logs, `.env`, Volume-Rechte, Portbelegung |
 | Daten nach Redeploy weg | Volume-Zuordnung und `DB_PATH` prüfen |
 | Fotos fehlen | `UPLOADS_PATH=/app/data/uploads` und Volume prüfen |
 | Login plötzlich ungültig | wurde `JWT_SECRET` ersetzt? |
 | mehrfacher Bestandsabzug | nur eine scheduleraktive Instanz betreiben |
-| Health zeigt HTML | bekannte Route-Reihenfolge im Backend |
-
-Portainer, Dockge und ähnliche Werkzeuge können dieselbe `compose.yaml`
-verwenden. Feldnamen und Secretverwaltung unterscheiden sich; maßgeblich bleiben
-die Variablen und Persistenzregeln aus dem Betriebshandbuch.

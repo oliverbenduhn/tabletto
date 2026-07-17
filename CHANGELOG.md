@@ -26,6 +26,8 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - konsistentes SQLite-Online-Backup inklusive Uploads umgesetzt
 - Containerstart durch reproduzierbaren nativen SQLite-Build, normalisierte
   Leserechte und entfallenes rekursives Laufzeit-`chown` repariert
+- Releases an erfolgreiche CI gekoppelt, E2E-Projekte per Datenbank isoliert und
+  GHCR als einzige Produktionsimage-Quelle mit signiertem Komodo-Deploy eingeführt
 
 ### UI und Qualität
 

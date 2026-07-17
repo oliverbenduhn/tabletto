@@ -66,11 +66,11 @@ Entschiedene Alternativen:
 Das `ci.yml` dieses Branches (Node 22, echte Backend-Tests, Playwright-E2E)
 ersetzt beim Merge den Node-18-Stand auf `main`. Änderungen:
 
-- **E2E-Fix (Root Cause):** `playwright.config.js` erhält pro Projekt einen
-  eigenen `webServer`-Block mit eigener `DB_PATH`
+- **E2E-Fix (Root Cause):** Das globale `webServer`-Array in
+  `playwright.config.js` startet pro Projekt einen Server mit eigener `DB_PATH`
   (`/tmp/tabletto-e2e-desktop.db` und `/tmp/tabletto-e2e-mobile.db`).
-  Der globale `webServer`-Block entfällt. Jedes Projekt startet seinen
-  eigenen Backend-Prozess mit frischer SQLite. Damit läuft jede Spec auf
+  Projektspezifische `baseURL`-Werte wählen den jeweiligen Backend-Prozess mit
+  frischer SQLite. Damit läuft jede Spec auf
   beiden Projekten, ohne dass persistente Server-State zwischen Projekten
   geteilt wird.
 - **Docker-Job bleibt Build-only:** `docker/build-push-action` mit
@@ -81,7 +81,10 @@ ersetzt beim Merge den Node-18-Stand auf `main`. Änderungen:
 
 ## 2. Releases (`release-please.yml`)
 
-- **Neuer Workflow `release-please.yml`**, Trigger: Push auf `main`.
+- **Neuer Workflow `release-please.yml`**, Trigger: erfolgreich abgeschlossener
+  `CI`-Workflow für einen Push auf `main` (`workflow_run`). So kann das Release
+  nicht vor dem Testergebnis entstehen. `workflow_dispatch` dient als Recovery
+  und kann eine bereits veröffentlichte Version erneut bauen/deployen.
   Ablauf in einem Lauf:
   1. `googleapis/release-please-action@v4` (Manifest-Modus,
      `release-type: node`) prüft, ob seit dem letzten Release
@@ -89,8 +92,10 @@ ersetzt beim Merge den Node-18-Stand auf `main`. Änderungen:
      und erstellt bzw. aktualisiert den Release-PR mit Versionsbumps in
      `package.json` (Root, `backend/`, `frontend/` via `extra-files`)
      und `CHANGELOG.md`.
-  2. Der Workflow merged diesen PR sofort per Squash (`gh pr merge`)
-     — kein manueller Schritt.
+  2. Der Workflow merged diesen PR synchron per Squash über die GitHub-API und
+     prüft `merged: true`. Er verwendet bewusst nicht `gh pr merge`, weil dieser
+     bei Branch Protection nur Auto-Merge vormerken und erfolgreich zurückkehren
+     kann, obwohl der PR noch offen ist.
   3. Die Action läuft ein zweites Mal, findet den gemergten
      Release-Commit und erzeugt Tag `vX.Y.Z` + GitHub-Release; erst
      dieser zweite Aufruf setzt `release_created`/`tag_name`.
@@ -102,14 +107,14 @@ ersetzt beim Merge den Node-18-Stand auf `main`. Änderungen:
      `docker/login-action@v3` gegen `ghcr.io` mit `GITHUB_TOKEN`.
   2. `docker/build-push-action@v6` mit `push: true` und Tags
      `:X.Y.Z` und `:latest`. Permissions für den Workflow:
-     `contents: write`, `packages: write`, `pull-requests: read`.
+     `contents: write`, `packages: write`, `pull-requests: write`.
   3. Kein Node-Setup im Runner — der Frontend-Build passiert im
      Dockerfile (Node 22).
 - **Komodo-Webhook:** Nach erfolgreichem Image-Push ruft der Workflow den
   Komodo-Deploy-Webhook auf. Authentifizierung gegen
-  `KOMODO_WEBHOOK_URL` und `KOMODO_WEBHOOK_SECRET` so, wie der Maintainer
-  den Komodo-Webhook konfiguriert (typisch: Secret als Header oder
-  URL-Token). Fehlende Secrets oder ein fehlgeschlagener Aufruf lassen
+  `KOMODO_WEBHOOK_URL` und `KOMODO_WEBHOOK_SECRET` im GitHub-kompatiblen Format
+  (HMAC-SHA256 in `X-Hub-Signature-256`). Fehlende Secrets oder ein
+  fehlgeschlagener Aufruf lassen
   den Workflow rot werden; das Image liegt bereits in GHCR und ein
   manueller Redeploy in Komodo bleibt möglich. Eine Repo-Variable
   `DEPLOY_WEBHOOK_OPTIONAL=true` schaltet den Webhook-Step sauber als
@@ -124,6 +129,7 @@ ersetzt beim Merge den Node-18-Stand auf `main`. Änderungen:
 
 ```json
 {
+  "bootstrap-sha": "b2fbd9d42662abaa7b560f16c0075a1fbbeed7e5",
   "packages": {
     ".": {
       "release-type": "node",
@@ -135,6 +141,11 @@ ersetzt beim Merge den Node-18-Stand auf `main`. Änderungen:
   }
 }
 ```
+
+`bootstrap-sha` ist der bestehende 1.5.0-Bump-Commit. Da `v1.5.0` nie
+veröffentlicht wurde (letzter Remote-Tag: `v1.3.0`), begrenzt er beim ersten
+Release-Please-Lauf die Commit-Suche auf Änderungen nach dem dokumentierten
+1.5.0-Stand.
 
 `.release-please-manifest.json` (neu, Repo-Root, Startstand):
 
@@ -154,7 +165,7 @@ ersetzt beim Merge den Node-18-Stand auf `main`. Änderungen:
   `compose.yaml` übernommen.
 - GHCR-Package auf **public** stellen (Repo ist public) — der Komodo-Host
   braucht dann keine Pull-Credentials.
-- **Rollback:** In Komodo das Image-Tag auf die Vorversion (`vX.Y.Z`)
+- **Rollback:** In Komodo das Image-Tag auf die Vorversion (`X.Y.Z`, ohne `v`)
   setzen und redeployen. Wird in `DEPLOY-KOMODO.md` dokumentiert. Ein
   reiner Image-Rollback reicht nur bei kompatiblen Schema-Änderungen;
   bei inkompatiblem Schema ist zusätzlich ein Daten-Restore nötig (siehe
@@ -168,7 +179,7 @@ ersetzt beim Merge den Node-18-Stand auf `main`. Änderungen:
 - `scripts/sync-version.js` wird gelöscht; der zugehörige
   `version:sync`-Eintrag in `package.json` entfällt. Synchronisierung
   läuft zentral über `release-please` mit `extra-files`.
-- `.release-please-config.json` kommt neu hinzu.
+- `release-please-config.json` kommt neu hinzu.
 - `DEPLOY-KOMODO.md`, `PUBLISH.md` und `docs/operations.md` beschreiben
   den neuen Fluss: Release entsteht durch Merge eines
   Conventional-Commits auf `main`, alles andere läuft automatisch.
@@ -183,12 +194,12 @@ ersetzt beim Merge den Node-18-Stand auf `main`. Änderungen:
   CI-Lücken auf dem Bump-Commit sind akzeptiertes Restrisiko bei
   deterministischem Bump; ein re-Push oder ein Hotfix-Commit reaktiviert
   CI falls nötig.
-- **Image-Build-Fehler im Release** → kein Push, kein Tag-Schaden am
-  Remote (Build und Push sind atomare Schritte in der
-  `build-push-action`).
-- **Main-Branch-Bild ist grün** ist hinreichende Voraussetzung: das Tag
-  entsteht nur durch release-please nach erfolgreichem CI-Lauf des
-  auslösenden Push.
+- **Image-Build-Fehler im Release** → Tag und GitHub-Release existieren bereits,
+  aber das Produktionsimage fehlt. `workflow_dispatch` veröffentlicht die
+  angegebene oder neueste Version erneut; der Komodo-Webhook läuft erst nach
+  erfolgreichem Image-Push.
+- **Main-Branch-CI ist grün** ist Voraussetzung: Der Release-Workflow wird nur
+  nach einem erfolgreichen `CI`-Lauf für einen `main`-Push gestartet.
 
 ## Tests / Verifikation
 
@@ -196,7 +207,8 @@ ersetzt beim Merge den Node-18-Stand auf `main`. Änderungen:
   Notification-Specs erscheinen in beiden Playwright-Projekten und sind
   grün.
 - CI-Lauf des PRs grün.
-- Nach Merge: `ci.yml` docker job baut das Image, ohne zu pushen.
+- Nach Merge: `ci.yml` baut das Image ohne Push; erst sein erfolgreicher Abschluss
+  startet den Release-Workflow.
 - Erster release-please-Lauf auf `main` mit versionierungsrelevantem
   Commit: Direkt-Commit + `:X.Y.Z` + `:latest` in GHCR, Komodo-Webhook
   feuert, Stack zieht das neue Image.
@@ -209,8 +221,7 @@ ersetzt beim Merge den Node-18-Stand auf `main`. Änderungen:
   `ghcr.io/oliverbenduhn/tabletto:latest` mit Pull-Policy `always`
   umstellen.
 - `KOMODO_WEBHOOK_URL` und `KOMODO_WEBHOOK_SECRET` als GitHub-Secrets
-  hinterlegen. Auth-Schema so wählen, wie es zur Komodo-Webhook-Konfig
-  passt (typisch Header-Secret).
+  hinterlegen; Komodo verwendet das GitHub-kompatible HMAC-Schema.
 - GHCR-Package nach dem ersten Push auf public stellen.
 - Für die Übergangsphase (vor erfüllten Voraussetzungen):
   Repo-Variable `DEPLOY_WEBHOOK_OPTIONAL=true` setzen, damit der

@@ -50,7 +50,8 @@ JWT_SECRET=$(openssl rand -base64 48)
 Dann:
 
 ```bash
-docker compose up -d --build
+docker compose pull tabletto
+docker compose up -d
 docker compose logs -f tabletto
 ```
 

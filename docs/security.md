@@ -102,8 +102,8 @@ API-Antworten werden nicht persistiert. Logout entfernt zusätzlich eventuell au
 ## Container
 
 Das Runtime-Image startet über `gosu` als nicht privilegierter `appuser`.
-`docker-compose.prod.yml` setzt `no-new-privileges:true`, begrenzt Ressourcen und
-rotiert JSON-Logs. Das Standard-Compose enthält diese Optionen nicht vollständig.
+`compose.yaml` setzt `no-new-privileges:true`, begrenzt Ressourcen und rotiert
+JSON-Logs. Produktion zieht ausschließlich das veröffentlichte GHCR-Image.
 
 Der Entrypoint läuft zunächst als root, um rekursiv Besitzrechte zu ändern. Bei
 Bind Mounts muss geprüft werden, ob dies unerwünschte Host-Berechtigungen ändert.

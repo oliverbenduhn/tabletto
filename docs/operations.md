@@ -16,19 +16,19 @@ flowchart LR
 Der Container führt Frontend, API und Scheduler in einem Prozess aus. SQLite und
 Uploads liegen gemeinsam unter `/app/data` im Volume `tabletto-data`.
 
-## Compose-Varianten
+## Compose und Image-Quelle
 
-- `compose.yaml`: Standardkonfiguration mit Scheduler, Uploadpfad, Zeitzone und
-  Health Check.
-- `docker-compose.prod.yml`: zusätzliche Netzwerk-, Logging-, Security- und
-  Ressourcenoptionen; Scheduler, Uploadpfad und Zeitzone sind ebenfalls explizit
-  konfigurierbar.
+`compose.yaml` ist die einzige Produktionskonfiguration. Sie zieht
+`ghcr.io/oliverbenduhn/tabletto:latest`, begrenzt Ressourcen, rotiert Logs und
+setzt `no-new-privileges`. Auf dem Produktionshost findet kein Image-Build statt.
+Versionierte Image-Tags ohne führendes `v` ermöglichen reproduzierbare Deploys.
 
 Start:
 
 ```bash
 cp .env.example .env
-docker compose up -d --build
+docker compose pull tabletto
+docker compose up -d
 docker compose ps
 docker compose logs -f tabletto
 ```
@@ -164,15 +164,16 @@ Update:
 
 ```bash
 git pull --ff-only
-docker compose build --pull tabletto
+docker compose pull tabletto
 docker compose up -d
 docker compose logs --tail=100 tabletto
 ```
 
 Vor einem Update ein Restore-getestetes Backup erstellen. Migrationen laufen
 automatisch beim Start und besitzen keinen separaten Down-Migrationsmechanismus.
-Ein Image-Rollback kann daher allein unzureichend sein; bei inkompatiblem Schema
-ist auch ein Daten-Restore erforderlich.
+Für einen Rollback `image:` auf einen früheren GHCR-Tag wie `1.5.0` pinnen und
+erneut deployen. Ein Image-Rollback kann allein unzureichend sein; bei
+inkompatiblem Schema ist auch ein Daten-Restore erforderlich.
 
 ## Reverse Proxy und TLS
 
