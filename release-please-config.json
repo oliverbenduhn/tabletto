@@ -4,6 +4,7 @@
   "packages": {
     ".": {
       "release-type": "node",
+      "include-component-in-tag": false,
       "extra-files": [
         { "type": "json", "path": "backend/package.json", "jsonpath": "$.version" },
         { "type": "json", "path": "frontend/package.json", "jsonpath": "$.version" }

@@ -257,6 +257,7 @@ git commit -m "ci: Least-Privilege-Permissions, Frontend-Build via pretest:e2e"
   "packages": {
     ".": {
       "release-type": "node",
+      "include-component-in-tag": false,
       "extra-files": [
         { "type": "json", "path": "backend/package.json", "jsonpath": "$.version" },
         { "type": "json", "path": "frontend/package.json", "jsonpath": "$.version" }

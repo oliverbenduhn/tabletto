@@ -133,6 +133,7 @@ ersetzt beim Merge den Node-18-Stand auf `main`. Änderungen:
   "packages": {
     ".": {
       "release-type": "node",
+      "include-component-in-tag": false,
       "extra-files": [
         { "type": "json", "path": "backend/package.json", "jsonpath": "$.version" },
         { "type": "json", "path": "frontend/package.json", "jsonpath": "$.version" }
@@ -141,6 +142,9 @@ ersetzt beim Merge den Node-18-Stand auf `main`. Änderungen:
   }
 }
 ```
+
+`include-component-in-tag: false` hält den für dieses einzelne Paket
+vereinbarten Tag `vX.Y.Z` frei vom Manifest-Komponentenpräfix.
 
 `bootstrap-sha` ist der bestehende 1.5.0-Bump-Commit. Da `v1.5.0` nie
 veröffentlicht wurde (letzter Remote-Tag: `v1.3.0`), begrenzt er beim ersten
