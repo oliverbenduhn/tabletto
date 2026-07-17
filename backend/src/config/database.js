@@ -32,6 +32,8 @@ async function initDatabase() {
       dose_time_morning TEXT DEFAULT '08:00',
       dose_time_noon TEXT DEFAULT '12:00',
       dose_time_evening TEXT DEFAULT '20:00',
+      notification_weekly_enabled INTEGER NOT NULL DEFAULT 0,
+      notification_status_enabled INTEGER NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       last_login DATETIME
     );
@@ -55,6 +57,7 @@ async function initDatabase() {
       interval_days INTEGER NOT NULL DEFAULT 1,
       dosage_per_interval REAL NOT NULL DEFAULT 0,
       next_due_at DATETIME,
+      last_notified_status TEXT,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
@@ -243,6 +246,48 @@ async function initDatabase() {
     }
   } catch (error) {
     console.error('Fehler bei der Migration (dose times):', error);
+    throw error;
+  }
+
+  // Notification preferences default to off (Opt-in). Existing rows must
+  // explicitly opt in; new users see the same defaults. The migration never
+  // touches last_notified_status so the first real status change after an
+  // upgrade can still trigger a mail.
+  try {
+    const userTableInfo = await db.all("PRAGMA table_info(users)");
+    const hasWeeklyEnabled = userTableInfo.some(col => col.name === 'notification_weekly_enabled');
+    const hasStatusEnabled = userTableInfo.some(col => col.name === 'notification_status_enabled');
+
+    if (!hasWeeklyEnabled) {
+      console.log('Führe Migration aus: Füge notification_weekly_enabled Spalte hinzu');
+      await db.run(`ALTER TABLE users ADD COLUMN notification_weekly_enabled INTEGER NOT NULL DEFAULT 0`);
+      console.log('Migration notification_weekly_enabled erfolgreich abgeschlossen');
+    }
+
+    if (!hasStatusEnabled) {
+      console.log('Führe Migration aus: Füge notification_status_enabled Spalte hinzu');
+      await db.run(`ALTER TABLE users ADD COLUMN notification_status_enabled INTEGER NOT NULL DEFAULT 0`);
+      console.log('Migration notification_status_enabled erfolgreich abgeschlossen');
+    }
+  } catch (error) {
+    console.error('Fehler bei der Migration (notification preferences):', error);
+    throw error;
+  }
+
+  // last_notified_status is the idempotency key for status warnings: we only
+  // mail when the new status is strictly worse than what was last reported.
+  // Nullable on purpose: existing medications get a clean slate after upgrade.
+  try {
+    const medicationTableInfo = await db.all("PRAGMA table_info(medications)");
+    const hasLastNotifiedStatus = medicationTableInfo.some(col => col.name === 'last_notified_status');
+
+    if (!hasLastNotifiedStatus) {
+      console.log('Führe Migration aus: Füge last_notified_status Spalte hinzu');
+      await db.run(`ALTER TABLE medications ADD COLUMN last_notified_status TEXT`);
+      console.log('Migration last_notified_status erfolgreich abgeschlossen');
+    }
+  } catch (error) {
+    console.error('Fehler bei der Migration (last_notified_status):', error);
     throw error;
   }
 

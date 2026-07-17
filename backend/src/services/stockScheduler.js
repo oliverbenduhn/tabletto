@@ -1,5 +1,6 @@
 const cron = require('node-cron');
 const { getDatabase, withTransaction } = require('../config/database');
+const { runStatusDetectionNow } = require('./notificationScheduler');
 
 let schedulerTask = null;
 let schedulerRunning = false;
@@ -169,6 +170,9 @@ async function checkAndDeductForAllUsers(now = new Date()) {
       await processDailySlot(user, 'evening', 'dosage_evening', today, currentTime, timeZone);
       await processIntervalMedications(user, today, currentTime, timeZone);
     }
+    // Status detection piggybacks on the stock tick. Mail failures must never
+    // abort the deduction pass — wrap in a self-contained catch.
+    await runStatusDetectionNow().catch(error => console.error('Stock-Scheduler: Statuserkennung fehlgeschlagen:', error));
   } finally {
     schedulerRunning = false;
   }

@@ -31,7 +31,9 @@ async function findById(id) {
 async function getPreferences(id) {
   const db = getDatabase();
   const user = await db.get(
-    'SELECT dashboard_view, calendar_view, dose_time_morning, dose_time_noon, dose_time_evening FROM users WHERE id = ?',
+    `SELECT dashboard_view, calendar_view, dose_time_morning, dose_time_noon, dose_time_evening,
+            notification_weekly_enabled, notification_status_enabled
+     FROM users WHERE id = ?`,
     [id]
   );
   if (!user) return null;
@@ -42,11 +44,19 @@ async function getPreferences(id) {
       morning: user.dose_time_morning,
       noon: user.dose_time_noon,
       evening: user.dose_time_evening
-    }
+    },
+    notificationWeeklyEnabled: !!user.notification_weekly_enabled,
+    notificationStatusEnabled: !!user.notification_status_enabled
   };
 }
 
-async function updatePreferences(id, { dashboardView, calendarView, dose_times }) {
+async function updatePreferences(id, {
+  dashboardView,
+  calendarView,
+  dose_times,
+  notificationWeeklyEnabled,
+  notificationStatusEnabled
+}) {
   const db = getDatabase();
   const fields = [];
   const values = [];
@@ -74,6 +84,16 @@ async function updatePreferences(id, { dashboardView, calendarView, dose_times }
       fields.push('dose_time_evening = ?');
       values.push(dose_times.evening);
     }
+  }
+
+  if (notificationWeeklyEnabled !== undefined) {
+    fields.push('notification_weekly_enabled = ?');
+    values.push(notificationWeeklyEnabled ? 1 : 0);
+  }
+
+  if (notificationStatusEnabled !== undefined) {
+    fields.push('notification_status_enabled = ?');
+    values.push(notificationStatusEnabled ? 1 : 0);
   }
 
   if (!fields.length) {

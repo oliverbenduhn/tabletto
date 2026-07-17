@@ -6,6 +6,8 @@ require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 const { initDatabase } = require('./config/database');
 const { getDatabase, closeDatabase } = require('./config/database');
 const { startStockScheduler, stopStockScheduler } = require('./services/stockScheduler');
+const { startNotificationScheduler, stopNotificationScheduler } = require('./services/notificationScheduler');
+const internalRoutes = require('./routes/internal');
 const { ensureUploadDirs } = require('./utils/uploads');
 const authRoutes = require('./routes/auth');
 const medicationRoutes = require('./routes/medications');
@@ -48,6 +50,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/medications', medicationRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/data', dataRoutes);
+if (process.env.ENABLE_INTERNAL_ENDPOINTS === 'true') {
+  app.use('/api/internal', internalRoutes);
+}
 
 const frontendBuildPath = path.join(__dirname, '../../frontend/build');
 app.use(express.static(frontendBuildPath));
@@ -79,6 +84,7 @@ initDatabase()
     // Start Stock Scheduler
     if (process.env.ENABLE_STOCK_SCHEDULER !== 'false') {
       startStockScheduler();
+      startNotificationScheduler();
     }
 
     server = app.listen(PORT, '0.0.0.0', () => {
@@ -93,6 +99,7 @@ initDatabase()
 async function shutdown(signal) {
   console.log(`${signal} empfangen - fahre Anwendung herunter`);
   stopStockScheduler();
+  stopNotificationScheduler();
   if (server) {
     await new Promise(resolve => server.close(resolve));
   }

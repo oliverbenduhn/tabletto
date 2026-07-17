@@ -50,8 +50,8 @@ test('bestehendes Minimalschema wird idempotent auf den aktuellen Stand migriert
   await initDatabase();
   const medicationColumns = new Set((await getDatabase().all('PRAGMA table_info(medications)')).map(column => column.name));
   const userColumns = new Set((await getDatabase().all('PRAGMA table_info(users)')).map(column => column.name));
-  assert.ok(['dosage_noon', 'photo_path', 'last_stock_measured_at', 'interval_days', 'dosage_per_interval', 'next_due_at'].every(column => medicationColumns.has(column)));
-  assert.ok(['dashboard_view', 'calendar_view', 'dose_time_morning', 'dose_time_noon', 'dose_time_evening'].every(column => userColumns.has(column)));
+  assert.ok(['dosage_noon', 'photo_path', 'last_stock_measured_at', 'interval_days', 'dosage_per_interval', 'next_due_at', 'last_notified_status'].every(column => medicationColumns.has(column)));
+  assert.ok(['dashboard_view', 'calendar_view', 'dose_time_morning', 'dose_time_noon', 'dose_time_evening', 'notification_weekly_enabled', 'notification_status_enabled'].every(column => userColumns.has(column)));
   assert.ok(await getDatabase().get("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'stock_deductions'"));
   await closeDatabase();
   fs.rmSync(root, { recursive: true, force: true });

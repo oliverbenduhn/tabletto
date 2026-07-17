@@ -49,7 +49,13 @@ async function getUserPreferences(req, res) {
 }
 
 async function updateUserPreferences(req, res) {
-  const { dashboardView, calendarView, dose_times } = req.body || {};
+  const {
+    dashboardView,
+    calendarView,
+    dose_times,
+    notificationWeeklyEnabled,
+    notificationStatusEnabled
+  } = req.body || {};
   const updates = {};
 
   if (dashboardView !== undefined) {
@@ -80,6 +86,20 @@ async function updateUserPreferences(req, res) {
       return res.status(400).json({ error: 'Ungültiges Format für dose_time_evening (HH:MM)' });
     }
     updates.dose_times = dose_times;
+  }
+
+  if (notificationWeeklyEnabled !== undefined) {
+    if (typeof notificationWeeklyEnabled !== 'boolean') {
+      return res.status(400).json({ error: 'Ungültiger notificationWeeklyEnabled' });
+    }
+    updates.notificationWeeklyEnabled = notificationWeeklyEnabled;
+  }
+
+  if (notificationStatusEnabled !== undefined) {
+    if (typeof notificationStatusEnabled !== 'boolean') {
+      return res.status(400).json({ error: 'Ungültiger notificationStatusEnabled' });
+    }
+    updates.notificationStatusEnabled = notificationStatusEnabled;
   }
 
   const preferences = await updatePreferences(req.user.id, updates);
