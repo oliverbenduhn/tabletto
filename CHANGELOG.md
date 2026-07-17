@@ -5,6 +5,13 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/).
 
+## [1.7.1](https://github.com/oliverbenduhn/tabletto/compare/v1.7.0...v1.7.1) (2026-07-17)
+
+
+### Bug Fixes
+
+* **scheduler:** Cron-Pattern beim Start übergeben ([#9](https://github.com/oliverbenduhn/tabletto/issues/9)) ([7c1851d](https://github.com/oliverbenduhn/tabletto/commit/7c1851d1c72268174861b94942986b19bd18da97))
+
 ## [1.7.0](https://github.com/oliverbenduhn/tabletto/compare/v1.6.0...v1.7.0) (2026-07-17)
 
 
