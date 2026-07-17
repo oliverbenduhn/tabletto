@@ -18,6 +18,7 @@ function SettingsPage() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [sendingTestMail, setSendingTestMail] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
 
@@ -47,6 +48,20 @@ function SettingsPage() {
       setError(err.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSendTestMail = async () => {
+    setSendingTestMail(true);
+    setSuccess('');
+    setError('');
+    try {
+      const { message } = await api.sendWeeklyDigestTest();
+      setSuccess(message);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSendingTestMail(false);
     }
   };
 
@@ -171,6 +186,20 @@ function SettingsPage() {
                 <span className="block text-sm text-gray-600">Sonntag 18:00: Übersicht und auffällige Medikamente.</span>
               </span>
             </label>
+            <div className="rounded-2xl bg-blue-50 p-4">
+              <p className="mb-3 text-sm text-blue-900">
+                Sende die aktuelle Bestandsübersicht testweise an deine registrierte E-Mail-Adresse.
+                Das verändert deine Benachrichtigungseinstellungen nicht.
+              </p>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleSendTestMail}
+                disabled={sendingTestMail || saving}
+              >
+                {sendingTestMail ? 'Testmail wird gesendet...' : 'Testmail senden'}
+              </Button>
+            </div>
             <label className="flex items-start gap-3">
               <input
                 type="checkbox"

@@ -162,6 +162,12 @@ class ApiService {
     });
   }
 
+  async sendWeeklyDigestTest() {
+    return this.request('/user/notifications/test-weekly', {
+      method: 'POST'
+    });
+  }
+
   async exportData() {
     return this.request('/data/export');
   }

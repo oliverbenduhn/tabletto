@@ -98,6 +98,9 @@ API-Antworten werden nicht persistiert. Logout entfernt zusätzlich eventuell au
 - Produktionsbackups verschlüsseln und getrennt vom Anwendungsserver lagern.
 - `SMTP_*`-Variablen bleiben im Backend; sie werden ausschließlich vom
   Mailmodul gelesen und tauchen in keiner API-Antwort oder im PWA-Frontend auf.
+- Der Testmail-Endpunkt ist authentifiziert, sendet ausschließlich an die
+  registrierte Adresse des angemeldeten Benutzers, gibt keine SMTP-Fehlerdetails
+  zurück und ist auf drei Aufrufe je Benutzer in zehn Minuten begrenzt.
 
 ## Container
 

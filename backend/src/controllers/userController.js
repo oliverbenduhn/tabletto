@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { findById, findByEmail, updatePassword, getPreferences, updatePreferences } = require('../models/User');
 const { validatePassword } = require('../utils/validation');
+const { sendWeeklyDigestForUser } = require('../services/notificationScheduler');
 
 const ALLOWED_DASHBOARD_VIEWS = new Set(['grid', 'list']);
 const ALLOWED_CALENDAR_VIEWS = new Set(['dayGridMonth', 'listMonth']);
@@ -110,4 +111,24 @@ async function updateUserPreferences(req, res) {
   res.json({ preferences });
 }
 
-module.exports = { getProfile, changePassword, getUserPreferences, updateUserPreferences };
+async function sendWeeklyDigestTest(req, res) {
+  const result = await sendWeeklyDigestForUser(req.user.id);
+  if (result.reason === 'user-not-found') {
+    return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+  }
+  if (result.reason === 'smtp-not-configured') {
+    return res.status(503).json({ error: 'E-Mail-Versand ist nicht konfiguriert' });
+  }
+  if (!result.sent) {
+    return res.status(502).json({ error: 'Testmail konnte nicht gesendet werden' });
+  }
+  res.json({ message: 'Testmail wurde an deine registrierte E-Mail-Adresse gesendet' });
+}
+
+module.exports = {
+  getProfile,
+  changePassword,
+  getUserPreferences,
+  updateUserPreferences,
+  sendWeeklyDigestTest
+};

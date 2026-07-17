@@ -48,6 +48,8 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 - optionale E-Mail-Benachrichtigungen pro Benutzer (Opt-in): wöchentliche
   Bestandsinfo-Mail sonntags 18:00 sowie konsolidierte Statuswarnung bei
   Verschlechterung des Warnstatus; SMTP global über `.env`
+- geschützter und rate-limitierter Testversand der aktuellen Bestandsinfo-Mail
+  direkt aus den Einstellungen
 - Glossar (`CONTEXT.md`) und ADR zur SMTP-Konfiguration in der
   Backend-Umgebung ergänzt
 
