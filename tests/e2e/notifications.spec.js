@@ -232,6 +232,22 @@ test('Statuswarnung: good → warning bei aktivem Toggle', async ({ request }) =
   expect(mail.body).toMatch(/good\s*→\s*warning/);
 });
 
+test('Statuswarnung: good → critical zählt als Verschlechterung', async ({ request }) => {
+  const user = await createUser(request, 'status-good-critical');
+  await updatePreferences(request, user.token, { notificationStatusEnabled: true });
+  // Medikament startet deutlich im grünen Bereich (20 Tage Reichweite).
+  const med = await createMedication(request, user.token, baseDailyMedication('Direktabsturz', 20));
+
+  // Direkt auf critical drücken (< 7 Tage).
+  await setStock(request, user.token, med.id, 5);
+
+  await triggerStatusDetection(request);
+  await fakeSmtp.waitForCount(1);
+
+  const mail = parseMail(fakeSmtp.captured[0]);
+  expect(mail.body).toMatch(/good\s*→\s*critical/);
+});
+
 test('Statuswarnung: warning → critical zählt als Verschlechterung', async ({ request }) => {
   const user = await createUser(request, 'status-warning-critical');
   await updatePreferences(request, user.token, { notificationStatusEnabled: true });
@@ -354,4 +370,32 @@ test('SMTP-Credentials tauchen in keiner API-Antwort auf', async ({ request }) =
     expect(text).not.toMatch(/SMTP_/);
     expect(text).not.toMatch(/smtp\./);
   }
+});
+
+test('SMTP nicht konfiguriert: App läuft, keine Mails, keine Fehler', async ({ request }) => {
+  const user = await createUser(request, 'no-smtp');
+  await updatePreferences(request, user.token, {
+    notificationWeeklyEnabled: true,
+    notificationStatusEnabled: true
+  });
+  // Medikament in Reichweite, das ohne Mail einen Statusübergang auslösen würde.
+  const med = await createMedication(request, user.token, baseDailyMedication('Lautlos', 20));
+  await setStock(request, user.token, med.id, 5);
+
+  // SMTP deaktivieren und Detektion/Digest triggern.
+  await request.post('/api/internal/test/disable-smtp');
+  const status = await triggerStatusDetection(request);
+  const weekly = await triggerWeeklyDigest(request);
+  expect(status.skipped).toBe('smtp-not-configured');
+  expect(weekly.skipped).toBe('smtp-not-configured');
+
+  // Mailbox bleibt leer.
+  await new Promise(resolve => setTimeout(resolve, 300));
+  expect(fakeSmtp.captured).toHaveLength(0);
+
+  // App bleibt erreichbar – andere Endpunkte antworten weiterhin normal.
+  const health = await request.get('/health');
+  expect(health.ok()).toBeTruthy();
+  const meds = await request.get('/api/medications', { headers: auth(user.token) });
+  expect(meds.ok()).toBeTruthy();
 });

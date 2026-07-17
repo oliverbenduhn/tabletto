@@ -42,6 +42,14 @@ test('bestehendes Minimalschema wird idempotent auf den aktuellen Stand migriert
       timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+  // Seed a pre-existing user and medication so we can prove that the
+  // migration leaves last_notified_status NULL on existing rows. The spec
+  // requires that the first real status change after an upgrade still mails.
+  await legacy.run('INSERT INTO users (email, password_hash) VALUES (?, ?)', ['legacy@example.test', 'x']);
+  await legacy.run(
+    'INSERT INTO medications (user_id, name, tablets_per_package, current_stock) VALUES (?, ?, ?, ?)',
+    [1, 'Vorhandenes Medikament', 30, 10]
+  );
   await legacy.close();
 
   const { initDatabase, getDatabase, closeDatabase } = require('../src/config/database');
@@ -53,6 +61,11 @@ test('bestehendes Minimalschema wird idempotent auf den aktuellen Stand migriert
   assert.ok(['dosage_noon', 'photo_path', 'last_stock_measured_at', 'interval_days', 'dosage_per_interval', 'next_due_at', 'last_notified_status'].every(column => medicationColumns.has(column)));
   assert.ok(['dashboard_view', 'calendar_view', 'dose_time_morning', 'dose_time_noon', 'dose_time_evening', 'notification_weekly_enabled', 'notification_status_enabled'].every(column => userColumns.has(column)));
   assert.ok(await getDatabase().get("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'stock_deductions'"));
+  // Existing rows must keep last_notified_status NULL after migration so the
+  // first real status change after the upgrade still produces a mail.
+  const seeded = await getDatabase().get('SELECT last_notified_status FROM medications WHERE name = ?', ['Vorhandenes Medikament']);
+  assert.ok(seeded, 'vorhandene Medikamente müssen die Migration überleben');
+  assert.equal(seeded.last_notified_status, null);
   await closeDatabase();
   fs.rmSync(root, { recursive: true, force: true });
 });
