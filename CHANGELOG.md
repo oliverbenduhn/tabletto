@@ -5,6 +5,13 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/).
 
+## [1.8.1](https://github.com/oliverbenduhn/tabletto/compare/v1.8.0...v1.8.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* **history:** show stock movement times in local timezone ([841b63d](https://github.com/oliverbenduhn/tabletto/commit/841b63d4e8430221db3e8b3e9078cdeb04222244))
+
 ## [Unreleased]
 
 ### Geändert
