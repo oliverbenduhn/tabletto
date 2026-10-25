@@ -50,13 +50,16 @@ Der Test `kritische Tabletto-Prozessketten und visueller UX-Audit` deckt ab:
 4. Suche und leeres Suchergebnis
 5. Detailseite öffnen
 6. Bestand setzen und Packung addieren
-7. History anzeigen
+7. History mit Datum und Uhrzeit (einschließlich Sekunden) anzeigen
 8. Medikament bearbeiten
 9. Dashboard- und Kalenderpräferenzen speichern
 10. Navigation und Persistenz der Präferenzen
 11. Kalender öffnen
 12. Medikament löschen
 13. Logout und geschützte Route
+
+Der Intervalltermin im API-Test wird relativ zur aktuellen Zeit erzeugt, damit
+die Datumsvalidierung den Test nicht durch Zeitablauf blockiert.
 
 Die API-Suite ergänzt Health, Intervallfelder, parallele Bestandsaddition,
 Importrollback, leeren Restore, fremde Benutzerzugriffe und manipulierte Uploads.

@@ -22,6 +22,8 @@ test('Health, Mandantentrennung, Validierung und Import/Export-Vertrag', async (
 
   const userA = await createSession(request, 'api-a');
   const userB = await createSession(request, 'api-b');
+  const nextDue = new Date();
+  nextDue.setUTCDate(nextDue.getUTCDate() + 7);
   const medicationPayload = {
     name: 'Intervall-Test',
     dosage_morning: 0,
@@ -32,7 +34,7 @@ test('Health, Mandantentrennung, Validierung und Import/Export-Vertrag', async (
     current_stock: 4,
     warning_threshold_days: 7,
     interval_days: 7,
-    next_due_at: '2026-07-20T12:00:00'
+    next_due_at: nextDue.toISOString()
   };
   const created = await request.post('/api/medications', { headers: auth(userA.token), data: medicationPayload });
   expect(created.status()).toBe(201);

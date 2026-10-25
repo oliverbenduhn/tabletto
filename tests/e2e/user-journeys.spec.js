@@ -149,6 +149,7 @@ test('kritische Tabletto-Prozessketten und visueller UX-Audit', async ({ page },
     await expect(page.getByRole('status')).toHaveText('Bestand wurde aktualisiert.');
     await expect(page.getByText('Aktueller Bestand:').locator('..')).toContainText('10');
     await expect(page.getByText('Bestand gesetzt')).toBeVisible();
+    await expect(page.getByText('Bestand gesetzt').locator('..')).toContainText(/\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}:\d{2}/);
 
     await page.getByRole('button', { name: 'Packung hinzufügen' }).click();
     const addPackageDialog = page.getByRole('dialog', { name: 'Packung hinzufügen' });

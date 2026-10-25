@@ -5,6 +5,12 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/).
 
+## [Unreleased]
+
+### Geändert
+
+- Bestandsbewegungen zeigen Datum und Uhrzeit einschließlich Sekunden in der lokalen Gerätezeitzone. SQLite-Zeitstempel werden dabei korrekt als UTC interpretiert.
+
 ## [1.8.0](https://github.com/oliverbenduhn/tabletto/compare/v1.7.1...v1.8.0) (2026-07-17)
 
 

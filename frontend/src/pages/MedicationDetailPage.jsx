@@ -5,7 +5,7 @@ import MedicationDetail from '../components/Medications/MedicationDetail';
 import MedicationForm from '../components/Medications/MedicationForm';
 import Modal from '../components/Common/Modal';
 import Button from '../components/Common/Button';
-import { formatDate } from '../utils/dateFormatter';
+import { formatDateTime } from '../utils/dateFormatter';
 import api from '../services/api';
 
 const HISTORY_LABELS = {
@@ -201,7 +201,7 @@ function MedicationDetailPage() {
                 <span className="text-gray-500">
                   {entry.old_stock} → {entry.new_stock}
                 </span>
-                <span className="text-xs text-gray-400">{formatDate(entry.timestamp)}</span>
+                <span className="text-xs text-gray-400">{formatDateTime(entry.timestamp)}</span>
               </li>
             ))}
             {!history.length && <li className="text-sm text-gray-500">Keine Historie vorhanden.</li>}
