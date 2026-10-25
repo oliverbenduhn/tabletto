@@ -5,6 +5,13 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/).
 
+## [1.8.2](https://github.com/oliverbenduhn/tabletto/compare/v1.8.1...v1.8.2) (2026-10-25)
+
+
+### Bug Fixes
+
+* resolve repository audit findings ([8d17380](https://github.com/oliverbenduhn/tabletto/commit/8d173806fc2fe2607d44db6b48b0486b9059081a))
+
 ## [Unreleased]
 
 ### Behoben
