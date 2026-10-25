@@ -228,7 +228,7 @@ Packungsgröße; `404` unbekanntes/fremdes Medikament.
 
 ### `GET /api/medications/:id/history?limit=50`
 
-Response: `{ "history": [...] }`. Standardlimit 50, Wertebereich 1 bis 200,
+Response: `{ "history": [...], "next_cursor": "..." }`. Standardlimit 50, Wertebereich 1 bis 200,
 Sortierung neueste zuerst. Ungültige Werte fallen auf 50 zurück.
 
 ## Fotos
@@ -363,11 +363,12 @@ Beabsichtigte Response:
 {
   "success": true,
   "data": {
-    "version": "2.0.0",
+    "version": "2.1.0",
     "exportDate": "2026-07-15T10:00:00.000Z",
     "user": {},
     "medications": [],
-    "history": []
+    "history": [],
+    "stock_deductions": []
   }
 }
 ```
@@ -425,3 +426,32 @@ curl -sS http://localhost:3000/api/medications/12/photo \
   -H "Authorization: Bearer $TOKEN" \
   -F 'photo=@packung.jpg'
 ```
+
+## Ergänzungen aus dem Master-Audit
+
+- `GET /api/medications/:id/history` akzeptiert zusätzlich `cursor` aus der
+  vorherigen Antwort. `next_cursor = null` beendet die Liste. Sortierung ist
+  Zeitpunkt absteigend, dann ID absteigend; Cursorgrenzen verwenden dieselbe
+  Reihenfolge. Ungültige Cursor liefern 400. Das bisherige `limit` bleibt gültig.
+- Export 2.1.0 ergänzt die Liste `stock_deductions` mit `medication_id`, `slot`,
+  `scheduled_for`; Medikamente enthalten `scheduler_anchor_at`. Passwörter,
+  Uploadpfade, Foto-Binärdaten und fremde Benutzerinformationen bleiben ausgeschlossen.
+- Import unterstützt 1.0.5, 2.0.0, 2.1.0 und unversionierte Legacy-Dateien.
+  2.1.0 erfordert `stock_deductions`. Quell-IDs müssen positive, eindeutige IDs
+  sein (numerische Strings werden normalisiert); vorhandene ungültige Referenzen
+  fallen nicht still auf Namen zurück. Ohne Quellreferenz ist ein eindeutiger Name
+  weiterhin als Legacy-Zuordnung erlaubt. Negative/zu große History-Bestände,
+  ungültige Zeitstempel und Marker werden mit 400 vor dem Replace abgelehnt.
+- Archivierte vergangene Intervalltermine sind erlaubt. Bei Legacy-Dateien wird
+  der Exportzeitpunkt, ersatzweise Restorezeit als Messanker verwendet. Neue
+  interaktive Termine bleiben auf heute bis zwei Jahre in die Zukunft begrenzt.
+- Tägliche Medikamente erhalten immer die Summe ihrer Tagesdosen als
+  `dosage_per_interval`; ein explizit abweichender Wert wird normalisiert.
+- `set_stock` ist eine neue Messbasis und verhindert Nachabzüge davor fälliger
+  Slots; `add_package` verändert diese Basis nicht. Plan-/Zeitänderungen rechnen
+  zuvor fällige Slots noch mit dem alten Plan ab.
+- `PUT /api/user/password` liefert bei falschem aktuellem Passwort weiterhin
+  401. Der Client erhält dabei seine Sitzung; ungültige Tokens liefern weiterhin
+  403 und führen zum Login. Das Formular steht in den Einstellungen bereit.
+- SQLite-Zeitstempel ohne Offset sind UTC. Das Frontend zeigt Mess-/Bewegungszeiten
+  in der Gerätezeitzone an; Fälligkeitsdaten ohne Offset sind Kalendertage in `TZ`.

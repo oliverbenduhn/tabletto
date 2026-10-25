@@ -112,7 +112,12 @@ docker compose exec tabletto npm run backup
 ```
 
 erzeugt unter `/app/data/backups/backup-<zeitstempel>/` mit `VACUUM INTO` einen
-konsistenten SQLite-Snapshot, kopiert Uploads und schreibt ein Manifest. Das Ziel
+konsistenten SQLite-Snapshot, kopiert die darin referenzierten Fotos und schreibt
+ein Manifest. Währenddessen hält eine zweite Verbindung `BEGIN IMMEDIATE` auf
+der Quelldatenbank: Fotoreferenzen und Dateibereinigung können die Sicherung
+nicht überholen. Fehlende referenzierte Dateien lassen die Sicherung scheitern.
+Die App wartet bis zu 30 Sekunden auf die Sperre; große Sicherungen vorzugsweise
+in einem Wartungsfenster ausführen. Temporäre Sicherungen werden bei Fehlern entfernt. Das Ziel
 muss anschließend extern verschlüsselt gesichert werden.
 
 Für ein zusätzliches vollständiges Offline-Archiv:
@@ -249,3 +254,38 @@ die heutigen spezifischen Aktionstypen übersehen. Nicht blind automatisieren.
 | Import/Export fehlerhaft | Exportversion, Validierungsantwort und Größenlimit prüfen |
 | Login nach Redeploy ungültig | Änderung von `JWT_SECRET` |
 | DB gesperrt | parallele Prozesse/Backups, offene Schreiboperationen |
+
+## Wiederherstellung und Scheduler nach dem Master-Audit
+
+JSON-Export 2.1.0 enthält Scheduler-Marker und `scheduler_anchor_at`; beim Restore
+werden beide gemeinsam mit Medikamenten und History transaktional ersetzt.
+Ein erneuter Tick am selben Tag zieht keine bereits verbuchte Dosis ab. Fotos
+bleiben vom JSON-Export ausgeschlossen; ein vollständiger Restore benötigt das
+Datei-/DB-Backup. Vor einem Update weiterhin ein Restore-getestetes externes
+Backup erstellen.
+
+Legacy-Exporte 1.0.5/2.0.0 oder ohne Version haben keine vollständigen Marker.
+Ihr Exportzeitpunkt gilt als Messanker, ersatzweise die Restorezeit. Frühere
+Slots werden als vom enthaltenen Bestand abgedeckt behandelt. Fehlende Abzüge
+vor diesem Zeitpunkt lassen sich nicht sicher rekonstruieren; nach Legacy-Restore
+Bestand kontrollieren und gegebenenfalls über „Bestand setzen“ neu messen.
+Vergangene Intervalltermine verhindern einen Archivimport nicht mehr.
+
+`set_stock` beginnt einen neuen Messabschnitt. Bei Änderungen des Plans oder der
+Einnahmezeiten werden offene Abzüge zunächst mit dem alten Plan abgerechnet.
+Die Migration fügt `scheduler_anchor_at` idempotent hinzu und übernimmt, falls
+vorhanden, die Zeit der letzten `set_stock`-History. Migration und Backfill sind
+atomar; bei Fehlern startet die App nicht. Nach Behebung von Speicher-/Rechtefehlern
+neu starten; keine manuelle Entfernung von Abzugsmarkern vornehmen.
+
+Server und `backend/scripts/backup.js` laden dieselbe Projekt-`.env` und dieselben
+Defaultpfade (`backend/data/tabletto.db`, `backend/uploads`). Explizite Prozess-
+Umgebungsvariablen haben Vorrang. Für lokale Sicherungen:
+
+```bash
+npm run backup --prefix backend
+```
+
+Statuswarnungen behalten bei SMTP-Fehlern den alten Zustellmarker und versuchen
+es beim nächsten Tick erneut. Nach SMTP-Annahme und Prozessabbruch vor DB-Commit
+kann eine Warnung doppelt erscheinen; dies ist das verbleibende Zustellfenster.

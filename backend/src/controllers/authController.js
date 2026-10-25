@@ -42,6 +42,7 @@ async function login(req, res) {
   const password = req.body?.password;
   const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
 
+  if (typeof password !== 'string' || password.length > 128) return res.status(401).json({ error: 'Ungültige Anmeldedaten' });
   const user = await findByEmail(email);
   if (!user) {
     return res.status(401).json({ error: 'Ungültige Anmeldedaten' });

@@ -1,6 +1,9 @@
+import { useRef } from 'react';
+import { formatDateTime } from '../../utils/dateFormatter';
 import Button from '../Common/Button';
 
 function MedicationDetail({ medication, onAddPackage, onSetStock, onPhotoUpload, onPhotoDelete, photoUploading }) {
+  const photoInput = useRef(null);
   if (!medication) {
     return null;
   }
@@ -10,13 +13,7 @@ function MedicationDetail({ medication, onAddPackage, onSetStock, onPhotoUpload,
   const isOutOfStock = medication.current_stock === 0;
 
   // Format last measured timestamp
-  const lastMeasuredDate = medication.last_stock_measured_at
-    ? new Date(medication.last_stock_measured_at).toLocaleDateString('de-DE', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      })
-    : '–';
+  const lastMeasuredDate = formatDateTime(medication.last_stock_measured_at);
 
   // Format interval display
   const intervalDisplay = medication.interval_days === 1
@@ -26,9 +23,9 @@ function MedicationDetail({ medication, onAddPackage, onSetStock, onPhotoUpload,
     : medication.interval_days === 14
     ? 'Alle 2 Wochen'
     : medication.interval_days === 30
-    ? 'Monatlich'
+    ? 'Alle 30 Tage'
     : medication.interval_days === 90
-    ? 'Alle 3 Monate'
+    ? 'Alle 90 Tage'
     : `Alle ${medication.interval_days} Tage`;
 
   // Format next due date
@@ -95,16 +92,11 @@ function MedicationDetail({ medication, onAddPackage, onSetStock, onPhotoUpload,
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
-              <label className="inline-flex min-h-11 cursor-pointer items-center rounded-full border border-blue-100 px-3 py-2 text-blue-600 transition hover:bg-blue-50">
+              <Button variant="secondary" onClick={() => photoInput.current?.click()} disabled={photoUploading}>
                 {photoUploading ? 'Lade hoch ...' : 'Foto hochladen'}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={onPhotoUpload}
-                  disabled={photoUploading}
-                  className="hidden"
-                />
-              </label>
+              </Button>
+              <input ref={photoInput} type="file" accept="image/jpeg,image/png,image/gif,image/webp"
+                aria-label="Packungsfoto auswählen" onChange={onPhotoUpload} disabled={photoUploading} className="hidden" />
               {medication.photo_url && (
                 <button
                   type="button"

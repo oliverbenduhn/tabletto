@@ -5,18 +5,26 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/).
 
+## [Unreleased]
+
+### Behoben
+
+- Zusätzlich beim Containerbau erkannte Abhängigkeitsschwachstellen durch aktualisierte Lockfiles, Multer 2.5 und Nodemailer 10 sowie einen korrigierten CSS-Selector-Parser behoben.
+
+- Alle Befunde des Master-Audits: idempotenter Export-/Import-Rundlauf mit Format 2.1.0, Restore alter Archive, konsistente Reichweiten und Tagesdosierungen.
+- Scheduler berücksichtigt Bestandsmessungen und rechnet offene Abzüge vor Änderungen am Einnahmeplan mit dem alten Plan ab.
+- Fehlgeschlagene Statusmails werden erneut versucht; Datenbankzugriffe und parallele Fotoänderungen sind koordiniert.
+- Backup verwendet dieselbe Konfiguration wie der Server und sichert Datenbank und referenzierte Fotos unter gemeinsamer Schreibsperre.
+- Speicherfehler erhalten Formulareingaben; Bruchbestände, Passwortänderung und Fotoauswahl per Tastatur sind erreichbar.
+- Kalendernavigation, deutsche Leerzustände und Datumsdarstellung korrigiert; Ladefehler überschreiben keine Einstellungen.
+- Aktuelle Bestände werden bei Rückkehr zur App und regelmäßig neu geladen; ältere Bestandsbewegungen sind nachladbar.
+
 ## [1.8.1](https://github.com/oliverbenduhn/tabletto/compare/v1.8.0...v1.8.1) (2026-10-25)
 
 
 ### Bug Fixes
 
 * **history:** show stock movement times in local timezone ([841b63d](https://github.com/oliverbenduhn/tabletto/commit/841b63d4e8430221db3e8b3e9078cdeb04222244))
-
-## [Unreleased]
-
-### Geändert
-
-- Bestandsbewegungen zeigen Datum und Uhrzeit einschließlich Sekunden in der lokalen Gerätezeitzone. SQLite-Zeitstempel werden dabei korrekt als UTC interpretiert.
 
 ## [1.8.0](https://github.com/oliverbenduhn/tabletto/compare/v1.7.1...v1.8.0) (2026-07-17)
 

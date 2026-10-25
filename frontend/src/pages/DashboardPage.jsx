@@ -5,6 +5,8 @@ import MedicationForm from '../components/Medications/MedicationForm';
 import Modal from '../components/Common/Modal';
 import StatusDistribution from '../components/Dashboard/StatusDistribution';
 import api from '../services/api';
+import useLiveRefresh from '../hooks/useLiveRefresh';
+import DataFreshness from '../components/Common/DataFreshness';
 
 const statConfig = [
   {
@@ -89,13 +91,16 @@ function DashboardPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const formRef = useRef(null);
+  const savedView = useRef(null);
+  const [updatedAt, setUpdatedAt] = useState(null);
 
-  const fetchMedications = async () => {
-    setLoading(true);
+  const fetchMedications = async (background = false) => {
+    if (!background) setLoading(true);
     setError('');
     try {
       const { medications } = await api.getMedications();
       setMedications(medications);
+      setUpdatedAt(new Date().toISOString());
     } catch (err) {
       setError(err.message);
       setToast({ type: 'error', message: 'Laden fehlgeschlagen – bitte versuche es erneut.' });
@@ -114,13 +119,12 @@ function DashboardPage() {
       .then(({ preferences }) => {
         if (!active) return;
         if (preferences?.dashboardView) {
+          savedView.current = preferences.dashboardView;
           setViewMode(preferences.dashboardView);
         }
+        setPreferencesLoaded(true);
       })
-      .catch(() => {})
-      .finally(() => {
-        if (active) setPreferencesLoaded(true);
-      });
+      .catch(() => { if (active) setError('Ansichtseinstellungen konnten nicht geladen werden.'); });
     return () => {
       active = false;
     };
@@ -133,9 +137,13 @@ function DashboardPage() {
   }, [toast]);
 
   useEffect(() => {
-    if (!preferencesLoaded) return;
-    api.updatePreferences({ dashboardView: viewMode }).catch(() => {});
+    if (!preferencesLoaded || viewMode === savedView.current) return;
+    api.updatePreferences({ dashboardView: viewMode })
+      .then(() => { savedView.current = viewMode; })
+      .catch(() => setError('Ansicht konnte nicht gespeichert werden.'));
   }, [viewMode, preferencesLoaded]);
+
+  const online = useLiveRefresh(() => fetchMedications(true), isModalOpen);
 
   const handleCreateMedication = async form => {
     setIsSubmitting(true);
@@ -228,6 +236,7 @@ function DashboardPage() {
     <div className="min-h-screen bg-transparent">
       <Header />
       <main className="mx-auto max-w-6xl space-y-8 px-4 py-6 sm:py-8">
+        <DataFreshness updatedAt={updatedAt} online={online} />
         {toast && (
           <div
             role={toast.type === 'error' ? 'alert' : 'status'}

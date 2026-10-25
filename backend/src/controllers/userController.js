@@ -16,7 +16,7 @@ async function getProfile(req, res) {
 }
 
 async function changePassword(req, res) {
-  const { current_password, new_password } = req.body;
+  const { current_password, new_password } = req.body || {};
 
   if (typeof current_password !== 'string') {
     return res.status(400).json({ error: 'Aktuelles Passwort ist erforderlich' });
@@ -77,13 +77,13 @@ async function updateUserPreferences(req, res) {
     if (!dose_times || typeof dose_times !== 'object' || Array.isArray(dose_times)) {
       return res.status(400).json({ error: 'Ungültige Einnahmezeiten' });
     }
-    if (dose_times.morning && !TIME_REGEX.test(dose_times.morning)) {
+    if (dose_times.morning !== undefined && (typeof dose_times.morning !== 'string' || !TIME_REGEX.test(dose_times.morning))) {
       return res.status(400).json({ error: 'Ungültiges Format für dose_time_morning (HH:MM)' });
     }
-    if (dose_times.noon && !TIME_REGEX.test(dose_times.noon)) {
+    if (dose_times.noon !== undefined && (typeof dose_times.noon !== 'string' || !TIME_REGEX.test(dose_times.noon))) {
       return res.status(400).json({ error: 'Ungültiges Format für dose_time_noon (HH:MM)' });
     }
-    if (dose_times.evening && !TIME_REGEX.test(dose_times.evening)) {
+    if (dose_times.evening !== undefined && (typeof dose_times.evening !== 'string' || !TIME_REGEX.test(dose_times.evening))) {
       return res.status(400).json({ error: 'Ungültiges Format für dose_time_evening (HH:MM)' });
     }
     updates.dose_times = dose_times;

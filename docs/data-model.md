@@ -44,6 +44,7 @@ erDiagram
       DATETIME next_due_at
       DATETIME created_at
       DATETIME updated_at
+      DATETIME scheduler_anchor_at
       DATETIME last_stock_measured_at
     }
 
@@ -95,10 +96,11 @@ garantiert.
 | `interval_days` | INTEGER | ja | `1` | Tage zwischen Einnahmen |
 | `dosage_per_interval` | REAL | ja | `0` | Dosis eines Intervalltermins |
 | `next_due_at` | DATETIME | ja | null | nächster Fälligkeitstermin |
+| `scheduler_anchor_at` | DATETIME | ja | null | Ausgangspunkt für zukünftige Abzüge nach Messung oder Planänderung |
 | `last_notified_status` | TEXT | ja | null | Idempotenzmarker für Statuswarnungen (`good`/`warning`/`critical`) |
 | `created_at` | DATETIME | ja | aktuelle DB-Zeit | Anlagezeit |
 | `updated_at` | DATETIME | ja | aktuelle DB-Zeit | letzte fachliche Änderung |
-| `last_stock_measured_at` | DATETIME | ja | aktuelle DB-Zeit | letzte manuelle Mess-/Änderungsbasis |
+| `last_stock_measured_at` | DATETIME | ja | aktuelle DB-Zeit | letzte manuelle Bestandsmessung (`set_stock`) |
 
 Fremdschlüssel: `user_id -> users.id ON DELETE CASCADE`.
 Index: `idx_medications_user`.
@@ -120,8 +122,9 @@ dosage_per_interval = Menge pro Fälligkeit
 next_due_at = nächste Fälligkeit
 ```
 
-Das Model setzt `dosage_per_interval` ohne expliziten Wert auf die Summe der
-drei Tagesdosierungen. Ein bewusst übergebener Wert `0` bleibt erhalten.
+Für tägliche Medikamente erzwingen Anlage, Änderung, Import, Migration und
+Berechnung `dosage_per_interval = daily_consumption`; abweichende Payloadwerte
+werden normalisiert. Intervallmedikamente verwenden ihre explizite Intervallmenge.
 
 ### Abgeleitete Werte
 
@@ -134,6 +137,10 @@ interval: days_remaining = Tage bis zur nächsten Dosis
                            + (intervals_remaining - 1) * interval_days
 depletion_date = heute + floor(days_remaining)
 ```
+
+Für Intervallmedikamente mit weniger als einer vollständigen Dosis gilt
+`days_remaining = 0` (kritisch). Termine werden als Kalendertage in `TZ` berechnet;
+Sommer-/Winterzeit verändert die Zahl der Tage nicht.
 
 Bei Dosis null liefert die API explizit `days_remaining = null` und
 `depletion_date = null`. Nicht endliche Zahlen gelangen nicht in den JSON-Vertrag.
@@ -204,6 +211,7 @@ Nach dem Basisschema prüft `database.js` derzeit:
 6. `users.dose_time_morning`, `dose_time_noon`, `dose_time_evening`
 7. `users.notification_weekly_enabled`, `notification_status_enabled`
 8. `medications.last_notified_status`
+9. `medications.scheduler_anchor_at` und Normalisierung täglicher Dosierungen
 
 Die Migrationen sind spaltenweise idempotent. Ein Fehler bricht den Start ab,
 damit kein teilweise migriertes Schema als betriebsbereit erscheint.
@@ -213,8 +221,8 @@ einer Ist-Zustandsprüfung für vorhandene Datenbanken ergänzt werden.
 
 ## Import und Export
 
-Exportformat `2.0.0` enthält Benutzer-Metadaten, portable Medikamentenfelder und
-History inklusive `medication_name`. Passwort-Hashes, `user_id`, `photo_path` und
+Exportformat `2.1.0` enthält Benutzer-Metadaten, portable Medikamentenfelder,
+History inklusive `medication_name`, `scheduler_anchor_at` und `stock_deductions`. Passwort-Hashes, `user_id`, `photo_path` und
 Foto-Binärdaten werden nicht exportiert.
 
 Beim Import:
@@ -223,7 +231,8 @@ Beim Import:
 - entstehen neue Medikament-IDs,
 - wird die alte ID auf die neue ID abgebildet,
 - fällt die History-Zuordnung bei Bedarf auf Medikamentnamen zurück,
-- werden Intervallfelder vollständig übernommen,
+- werden Intervallfelder und Abzugsmarker mit neuen Medikament-IDs übernommen,
+- werden IDs, Zeitstempel und Referenzen vor Beginn validiert,
 - führt eine nicht eindeutige History-Zuordnung zum Rollback,
 - werden alte lokale Fotos erst nach erfolgreichem Commit aufgeräumt.
 
@@ -235,3 +244,19 @@ Beim Import:
 - Zeitwerte benötigen eine definierte UTC-/Lokalzeit-Semantik.
 - Eine neue Spalte erfordert Schema, Migration, Models, Import/Export, API,
   Dokumentation und Tests.
+
+### Semantik des Scheduler-Ankers
+
+`set_stock` setzt Messzeit und `scheduler_anchor_at`. Vor diesem Zeitpunkt fällige
+Slots sind von der Messung abgedeckt und werden nicht erneut abgezogen.
+`add_package` addiert Bestand und verändert den Messanker nicht. Vor Änderungen
+des Einnahmeplans oder der Einnahmezeiten werden fällige Slots mit dem alten Plan
+in derselben Transaktion abgerechnet; der neue Plan erhält den Änderungszeitpunkt
+als Anker. Bereits verbuchte Slots behalten ihren Duplikatschutz.
+
+Bei der Migration wird der Anker aus dem letzten vorhandenen `set_stock`-Ereignis
+übernommen, sonst bleibt er null (Anlagezeit als untere Grenze). Neue Spalte und
+Backfill laufen gemeinsam transaktional; Fehler brechen den Start ab. Nach Behebung
+des Fehlers kann der Start dieselbe Migration erneut ausführen. Für Legacy-Exporte
+1.0.5/2.0.0 oder ohne Version gilt Exportzeitpunkt, ersatzweise Restorezeit als
+Anker; fehlende historische Marker können nicht verlustfrei rekonstruiert werden.

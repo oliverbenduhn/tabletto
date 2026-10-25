@@ -117,7 +117,10 @@ Schedulerlogs enthalten keine Medikamentnamen oder Bestände. Fehlerantworten
 enthalten keine Stacktraces oder internen Fehlermeldungen.
 
 Das Backup-Skript erzeugt mit `VACUUM INTO` einen konsistenten SQLite-Snapshot und
-kopiert Uploads in dasselbe versionierte Verzeichnis. Externe Verschlüsselung und
+kopiert ausschließlich referenzierte Fotos in dasselbe versionierte Verzeichnis.
+Eine auf der Quelldatenbank gehaltene Schreibsperre verhindert dabei Änderungen
+der Fotoreferenzen und Dateibereinigung. Fehlende referenzierte Dateien lassen
+die gesamte Sicherung fehlschlagen; temporäre Sicherungen werden entfernt. Externe Verschlüsselung und
 Restore-Tests bleiben Betreiberpflicht.
 
 ## Produktionscheckliste
@@ -139,3 +142,38 @@ Restore-Tests bleiben Betreiberpflicht.
 Keine echten Benutzerdaten oder Exploit-Secrets in öffentliche Issues schreiben.
 Eine Meldung sollte betroffene Version, reproduzierbare Schritte, Auswirkung und
 eine datensparsame Beispielanfrage enthalten.
+
+## Ergänzungen des Master-Audits
+
+- Alle Reads und Writes auf der gemeinsamen SQLite-Verbindung werden koordiniert.
+  Export-Reads sehen keinen teilweise importierten Zustand. Die Queue ist keine
+  Unterstützung für mehrere schreibende App-Replikate.
+- Fotoaustausch liest den vorherigen Pfad in derselben Transaktion wie das Update;
+  verworfene Uploads werden entfernt. Pfadcontainment bleibt unverändert; Cleanup
+  löscht nur nicht referenzierte lokale Dateien unter Datenbanksperre.
+- Import prüft Quell-IDs, Zeitstempel, Bestandsbereiche und Referenzen vor Replace.
+  Historische Termine sind Archivdaten und keine neue Einnahmeempfehlung.
+- Die CSP ergänzt `font-src 'self' data:` für FullCalendars eingebettete Schrift.
+  Skript-, Verbindungs- und Framegrenzen bleiben eng; externe Fonts sind nicht erlaubt.
+- Das Passwortformular löscht Eingaben nach Erfolg. Ein falsches aktuelles Passwort
+  ist eine fachliche 401 und löscht den JWT nicht; ungültige JWTs bleiben 403.
+- Statusmarker werden erst nach erfolgreicher SMTP-Annahme gespeichert. Bei Fehlern
+  erfolgt ein erneuter Versuch; eine Zustellungsgarantie an das Endgerät besteht nicht.
+
+
+## Abhängigkeiten nach dem Audit (25.10.2026)
+
+Die beim zusätzlichen Imagebau gefundenen Paketmeldungen wurden über aktualisierte
+Lockfiles, Multer ab 2.5.0 und Nodemailer ab 10.2.1 behoben. Nodemailer 10 setzt
+Node >=20 voraus; das Projekt benötigt bereits >=20.17.0. Die verwendete
+CommonJS-/SMTP-Schnittstelle bleibt erhalten und ist durch Fake-SMTP-E2E geprüft;
+der [Upstream-Changelog](https://github.com/nodemailer/nodemailer/blob/master/CHANGELOG.md)
+dokumentiert die Parser-/SMTP-Korrekturen.
+
+Im Frontend erzwingt ein npm-Override `postcss-selector-parser >=7.1.6`, damit die
+bestehende Tailwind-3-Buildkette einen korrigierten Selector-Parser verwendet.
+Das Override kann nach einer späteren Tailwind-Aktualisierung entfernt werden,
+sobald dessen transitiver Parser ebenfalls korrigiert ist. Produktionsbuild,
+Desktop-/Mobile-Workflows und schmale Viewports prüfen die Integration.
+`npm audit` meldet zum Prüfzeitpunkt in Backend und Frontend jeweils 0 bekannte
+Schwachstellen; dies ersetzt keine laufende Aktualisierung der Abhängigkeiten.

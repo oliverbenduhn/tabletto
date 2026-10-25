@@ -2,9 +2,8 @@
 // stock scheduler; weekly digest fires weekly. Both are silent no-ops when
 // SMTP is not configured.
 //
-// Status detection updates medications.last_notified_status on every detected
-// change (including recoveries), so the same medication will only ever mail on
-// a fresh worsening transition. Weekly digest is not state-tracked: the cron
+// Worsening markers advance only after successful SMTP acceptance. Failed
+// sends retain the transition for retry; recoveries update without sending. Weekly digest is not state-tracked: the cron
 // schedule is the only guard against duplicate sends.
 
 const cron = require('node-cron');
@@ -18,6 +17,7 @@ const {
 } = require('./notifications');
 
 let weeklyTask = null;
+let statusRun = null;
 
 function isWorsening(oldStatus, newStatus) {
   if (newStatus === 'critical') return oldStatus !== 'critical';
@@ -30,7 +30,7 @@ function transitionLabel(oldStatus) {
   return oldStatus || 'good';
 }
 
-async function runStatusDetectionNow() {
+async function detectStatuses({ send = sendMail, now = new Date() } = {}) {
   if (!isMailConfigured()) return { skipped: 'smtp-not-configured' };
   const db = getDatabase();
   const users = await db.all(
@@ -41,7 +41,7 @@ async function runStatusDetectionNow() {
     const medications = await db.all('SELECT * FROM medications WHERE user_id = ?', [user.id]);
     if (medications.length === 0) continue;
 
-    const enriched = medications.map(med => ({ ...med, ...calculateMedicationStats(med) }));
+    const enriched = medications.map(med => ({ ...med, ...calculateMedicationStats(med, now) }));
     const transitions = [];
 
     for (const med of enriched) {
@@ -55,18 +55,29 @@ async function runStatusDetectionNow() {
           depletion_date: med.depletion_date
         });
       }
-      await db.run(
-        'UPDATE medications SET last_notified_status = ? WHERE id = ? AND user_id = ?',
-        [med.warning_status, med.id, user.id]
-      );
     }
 
-    if (transitions.length === 0) continue;
-    const mail = renderStatusWarning(user, transitions);
-    const result = await sendMail({ to: user.email, ...mail });
-    if (!result.skipped && !result.error) totalMails += 1;
+    if (transitions.length) {
+      const mail = renderStatusWarning(user, transitions);
+      const result = await send({ to: user.email, ...mail });
+      if (result.skipped || result.error) continue;
+      totalMails += 1;
+    }
+    // Failed deliveries retain the old marker and are retried next tick.
+    for (const med of enriched) {
+      if (med.warning_status === med.last_notified_status) continue;
+      await db.run(`UPDATE medications SET last_notified_status = ?
+        WHERE id = ? AND user_id = ? AND last_notified_status IS ?`,
+      [med.warning_status, med.id, user.id, med.last_notified_status]);
+    }
   }
   return { mailsSent: totalMails };
+}
+
+function runStatusDetectionNow(options) {
+  if (statusRun) return statusRun;
+  statusRun = detectStatuses(options).finally(() => { statusRun = null; });
+  return statusRun;
 }
 
 async function deliverWeeklyDigest(user, { skipEmpty = true } = {}) {

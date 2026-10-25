@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useState } from 'react';
+import { forwardRef, useEffect, useState, useId } from 'react';
 import Input from '../Common/Input';
 import Button from '../Common/Button';
 
@@ -25,6 +25,7 @@ function localDateString(date = new Date()) {
 }
 
 const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitting, onSuccess, initialData = null, isEditMode = false }, ref) {
+  const fieldId = useId();
   const [form, setForm] = useState(initialState);
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState('');
@@ -68,7 +69,7 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
     setForm(prev => ({ ...prev, dosage_morning: preset, dosage_noon: preset, dosage_evening: preset }));
   };
 
-  const handleSubmit = e => {
+  const handleSubmit = async e => {
     e.preventDefault();
     setError('');
     if (!form.name) {
@@ -104,25 +105,17 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
     };
 
     // In edit mode, don't send photoFile
-    const result = onSubmit(isEditMode ? submitData : { ...submitData, photoFile });
-    if (result && typeof result.then === 'function') {
-      result.then(() => {
-        if (!isEditMode) {
-          setForm(initialState);
-          setPhotoFile(null);
-          setPhotoPreview('');
-          setPhotoInputKey(prev => prev + 1);
-        }
-        if (onSuccess) onSuccess();
-      });
-    } else {
+    try {
+      await onSubmit(isEditMode ? submitData : { ...submitData, photoFile });
       if (!isEditMode) {
         setForm(initialState);
         setPhotoFile(null);
         setPhotoPreview('');
         setPhotoInputKey(prev => prev + 1);
       }
-      if (onSuccess) onSuccess();
+      onSuccess?.();
+    } catch (err) {
+      setError(err.message || 'Speichern fehlgeschlagen. Bitte erneut versuchen.');
     }
   };
 
@@ -177,6 +170,7 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
           <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" /> Speichere Eintrag ...
         </div>
       )}
+      <fieldset disabled={isSubmitting} className="contents">
       <Input
         label="Name"
         name="name"
@@ -232,8 +226,9 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
         <p className="text-xs text-gray-500 mb-3">Wie oft wird das Medikament genommen?</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Intervall</label>
+            <label htmlFor={`${fieldId}-interval`} className="block text-xs font-medium text-gray-700 mb-1">Intervall</label>
             <select
+              id={`${fieldId}-interval`}
               name="interval_days"
               value={form.interval_days}
               onChange={handleChange}
@@ -244,8 +239,8 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
               <option value="3">Alle 3 Tage</option>
               <option value="7">Wöchentlich (7 Tage)</option>
               <option value="14">Alle 2 Wochen (14 Tage)</option>
-              <option value="30">Monatlich (30 Tage)</option>
-              <option value="90">Alle 3 Monate (90 Tage)</option>
+              <option value="30">Alle 30 Tage</option>
+              <option value="90">Alle 90 Tage</option>
             </select>
           </div>
           <div className="flex items-center text-xs text-gray-600">
@@ -269,10 +264,11 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
               onChange={handleChange}
               required
             />
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label htmlFor={`${fieldId}-due`} className="block text-xs font-medium text-gray-700 mb-1">
               Nächste Einnahme
             </label>
             <input
+              id={`${fieldId}-due`}
               type="date"
               name="next_due_at"
               value={form.next_due_at}
@@ -302,6 +298,8 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
         label="Aktueller Bestand"
         name="current_stock"
         type="number"
+        step="any"
+        max="10000"
         min="0"
         value={form.current_stock}
         onChange={handleChange}
@@ -337,7 +335,7 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
           )}
         </div>
       </div>}
-      {error && <p className="rounded-md bg-rose-50 p-3 text-sm text-rose-600">{error}</p>}
+      {error && <p role="alert" className="rounded-md bg-rose-50 p-3 text-sm text-rose-600">{error}</p>}
       <div className="sticky bottom-0 z-10 -mx-4 -mb-24 mt-2 border-t border-gray-100 bg-white/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur sm:static sm:m-0 sm:border-0 sm:bg-transparent sm:p-0">
       <Button type="submit" disabled={isSubmitting} className="w-full justify-center">
         {isSubmitting ? (
@@ -350,6 +348,7 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
         )}
       </Button>
       </div>
+      </fieldset>
     </form>
   );
 });

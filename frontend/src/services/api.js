@@ -24,7 +24,7 @@ class ApiService {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Ein Fehler ist aufgetreten' }));
-      if ((response.status === 401 || response.status === 403) && token) {
+      if ((response.status === 401 || response.status === 403) && token && !(endpoint === '/user/password' && response.status === 401)) {
         await clearPrivateClientData();
         if (!window.location.pathname.startsWith('/login')) {
           window.location.assign(`/login?returnTo=${encodeURIComponent(window.location.pathname)}`);
@@ -110,8 +110,8 @@ class ApiService {
     });
   }
 
-  async getMedicationHistory(id, limit = 50) {
-    return this.request(`/medications/${id}/history?limit=${limit}`);
+  async getMedicationHistory(id, limit = 50, cursor = null) {
+    return this.request(`/medications/${id}/history?limit=${limit}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
   }
 
   async uploadMedicationPhoto(id, photoFile) {
@@ -145,17 +145,6 @@ class ApiService {
   }
 
   async updatePreferences(preferences) {
-    return this.request('/user/preferences', {
-      method: 'PUT',
-      body: JSON.stringify(preferences)
-    });
-  }
-
-  async getUserPreferences() {
-    return this.request('/user/preferences');
-  }
-
-  async updateUserPreferences(preferences) {
     return this.request('/user/preferences', {
       method: 'PUT',
       body: JSON.stringify(preferences)

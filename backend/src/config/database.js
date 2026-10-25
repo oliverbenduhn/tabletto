@@ -1,6 +1,8 @@
 const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
-const path = require('path');
+const { AsyncLocalStorage } = require('node:async_hooks');
+const { dbPath } = require('./paths');
+const accessContext = new AsyncLocalStorage();
 
 let db = null;
 let writeQueue = Promise.resolve();
@@ -13,7 +15,6 @@ let writeQueue = Promise.resolve();
  * start and existing installations may already contain only some newer columns.
  */
 async function initDatabase() {
-  const dbPath = process.env.DB_PATH || path.join(__dirname, '../../data/tabletto.db');
 
   db = await open({
     filename: dbPath,
@@ -21,6 +22,7 @@ async function initDatabase() {
   });
 
   await db.exec('PRAGMA foreign_keys = ON');
+  await db.exec('PRAGMA busy_timeout = 30000');
 
   await db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -58,6 +60,7 @@ async function initDatabase() {
       dosage_per_interval REAL NOT NULL DEFAULT 0,
       next_due_at DATETIME,
       last_notified_status TEXT,
+      scheduler_anchor_at DATETIME,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
@@ -291,6 +294,23 @@ async function initDatabase() {
     throw error;
   }
 
+  await db.exec('BEGIN IMMEDIATE');
+  try {
+    const medicationColumns = await db.all('PRAGMA table_info(medications)');
+    if (!medicationColumns.some(column => column.name === 'scheduler_anchor_at')) {
+      await db.exec('ALTER TABLE medications ADD COLUMN scheduler_anchor_at DATETIME');
+      await db.run(`UPDATE medications SET scheduler_anchor_at = (SELECT h.timestamp FROM history h
+        WHERE h.medication_id = medications.id AND h.user_id = medications.user_id AND h.action = 'set_stock'
+        ORDER BY julianday(h.timestamp) DESC, h.id DESC LIMIT 1)`);
+    }
+    await db.run(`UPDATE medications SET dosage_per_interval = dosage_morning + dosage_noon + dosage_evening,
+      next_due_at = NULL WHERE interval_days = 1`);
+    await db.exec('COMMIT');
+  } catch (error) {
+    await db.exec('ROLLBACK');
+    throw error;
+  }
+
   console.log('Datenbank initialisiert');
   return db;
 }
@@ -299,15 +319,21 @@ function getDatabase() {
   if (!db) {
     throw new Error('Datenbank nicht initialisiert');
   }
-  return db;
+  return accessContext.getStore() || publicDatabase;
 }
 
+const publicDatabase = Object.fromEntries(['get', 'all', 'run', 'exec'].map(method => [method, (...args) =>
+  enqueueWrite(database => database[method](...args))
+]));
+
 /**
- * Serializes all application writes so no request can enter another request's
- * SQLite transaction on the process-wide connection.
+ * Serializes reads and writes on the single connection. Async context keeps
+ * helpers called inside one queued operation on that operation's connection.
  */
 function enqueueWrite(work) {
-  const run = writeQueue.then(() => work(getDatabase()));
+  const active = accessContext.getStore();
+  if (active) return Promise.resolve().then(() => work(active));
+  const run = writeQueue.then(() => accessContext.run(db, () => work(db)));
   writeQueue = run.catch(() => {});
   return run;
 }

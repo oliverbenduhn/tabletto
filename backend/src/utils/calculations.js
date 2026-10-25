@@ -1,3 +1,5 @@
+const { dueDate, zonedParts, addDays } = require('./dates');
+
 /**
  * Adds transient stock projections to one persisted medication record.
  *
@@ -8,10 +10,10 @@
  * @param {object} medication Persisted medication fields.
  * @returns {object} Derived range, depletion and warning fields.
  */
-function calculateMedicationStats(medication) {
+function calculateMedicationStats(medication, now = new Date()) {
   const dailyConsumption = (medication.dosage_morning || 0) + (medication.dosage_noon || 0) + (medication.dosage_evening || 0);
   const intervalDays = medication.interval_days ?? 1;
-  const dosagePerInterval = medication.dosage_per_interval ?? dailyConsumption;
+  const dosagePerInterval = intervalDays === 1 ? dailyConsumption : medication.dosage_per_interval ?? dailyConsumption;
 
   // If no consumption, return infinite
   if (dosagePerInterval === 0) {
@@ -29,17 +31,15 @@ function calculateMedicationStats(medication) {
 
   // Fractional intervals are meaningful because stock and doses may be REAL.
   const intervalsRemaining = medication.current_stock / dosagePerInterval;
-  const nextDue = medication.next_due_at ? new Date(medication.next_due_at) : null;
-  const now = new Date();
-  const daysUntilNextDose = nextDue && !Number.isNaN(nextDue.getTime())
-    ? Math.max(0, Math.ceil((nextDue - now) / (1000 * 60 * 60 * 24)))
+  const today = zonedParts(now).date;
+  const daysUntilNextDose = medication.next_due_at
+    ? Math.max(0, Math.round((new Date(`${dueDate(medication.next_due_at)}T12:00:00Z`) - new Date(`${today}T12:00:00Z`)) / 86400000))
     : null;
-  const daysRemaining = intervalDays > 1 && daysUntilNextDose !== null
+  const daysRemaining = intervalDays > 1 && medication.current_stock < dosagePerInterval ? 0 : intervalDays > 1 && daysUntilNextDose !== null
     ? daysUntilNextDose + Math.max(0, intervalsRemaining - 1) * intervalDays
     : intervalsRemaining * intervalDays;
 
-  const depletionDate = new Date();
-  depletionDate.setDate(depletionDate.getDate() + Math.floor(daysRemaining));
+  const depletionDate = new Date(`${addDays(today, Math.floor(daysRemaining))}T12:00:00Z`);
 
   // The per-medication critical threshold wins before the shared 14-day warning
   // band. Keeping this order prevents a critical stock from being downgraded.

@@ -16,6 +16,11 @@ function SettingsPage() {
     notificationWeeklyEnabled: false,
     notificationStatusEnabled: false
   });
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  const [password, setPassword] = useState({ current: '', next: '', confirmation: '' });
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sendingTestMail, setSendingTestMail] = useState(false);
@@ -27,9 +32,12 @@ function SettingsPage() {
   }, []);
 
   const loadPreferences = async () => {
+    setLoading(true);
+    setError('');
     try {
-      const { preferences } = await api.getUserPreferences();
+      const { preferences } = await api.getPreferences();
       setPreferences(preferences);
+      setPreferencesLoaded(true);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -38,11 +46,12 @@ function SettingsPage() {
   };
 
   const handleSave = async () => {
+    if (!preferencesLoaded) return;
     setSaving(true);
     setSuccess('');
     setError('');
     try {
-      await api.updateUserPreferences(preferences);
+      await api.updatePreferences(preferences);
       setSuccess('Einstellungen gespeichert ✓');
     } catch (err) {
       setError(err.message);
@@ -65,6 +74,21 @@ function SettingsPage() {
     }
   };
 
+  const changePassword = async event => {
+    event.preventDefault();
+    setPasswordError(''); setPasswordSuccess('');
+    if (password.next !== password.confirmation) {
+      setPasswordError('Die neuen Passwörter stimmen nicht überein.'); return;
+    }
+    setPasswordSaving(true);
+    try {
+      const result = await api.changePassword(password.current, password.next);
+      setPasswordSuccess(result.message);
+      setPassword({ current: '', next: '', confirmation: '' });
+    } catch (err) { setPasswordError(err.message); }
+    finally { setPasswordSaving(false); }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-transparent">
@@ -82,7 +106,11 @@ function SettingsPage() {
       <main className="mx-auto max-w-3xl px-4 py-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-6">Einstellungen</h1>
 
-        <div className="space-y-6">
+        {!preferencesLoaded && <div role="alert" className="mb-4 rounded-lg bg-rose-50 p-4">
+          <p>{error || 'Einstellungen konnten nicht geladen werden.'}</p>
+          <Button variant="secondary" onClick={loadPreferences}>Erneut laden</Button>
+        </div>}
+        <fieldset disabled={!preferencesLoaded || saving} className="space-y-6 min-w-0">
           {/* Einnahmezeiten */}
           <div className="rounded-3xl border border-gray-100 bg-white/90 p-6 shadow-sm">
             <h2 className="text-xl font-semibold text-gray-900 mb-2">Einnahmezeiten</h2>
@@ -115,7 +143,7 @@ function SettingsPage() {
                   }))}
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Für wöchentliche/monatliche Medikamente
+                  Für Intervallmedikamente
                 </p>
               </div>
 
@@ -137,7 +165,7 @@ function SettingsPage() {
           {/* Dashboard-Ansicht */}
           <div className="rounded-3xl border border-gray-100 bg-white/90 p-6 shadow-sm">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Dashboard-Ansicht</h2>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <button
                 type="button"
                 aria-pressed={preferences.dashboardView === 'grid'}
@@ -220,7 +248,7 @@ function SettingsPage() {
         {/* Kalender-Ansicht */}
           <div className="rounded-3xl border border-gray-100 bg-white/90 p-6 shadow-sm">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Kalender-Ansicht</h2>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <button
                 type="button"
                 aria-pressed={preferences.calendarView === 'dayGridMonth'}
@@ -256,7 +284,21 @@ function SettingsPage() {
           <Button onClick={handleSave} disabled={saving} className="w-full justify-center">
             {saving ? 'Speichere...' : 'Einstellungen speichern'}
           </Button>
-        </div>
+        </fieldset>
+        <form onSubmit={changePassword} className="mt-6 space-y-4 rounded-3xl border border-gray-100 bg-white p-6">
+          <h2 className="text-xl font-semibold">Passwort ändern</h2>
+          <fieldset disabled={passwordSaving} className="min-w-0 space-y-4">
+            <Input label="Aktuelles Passwort" type="password" autoComplete="current-password" required maxLength={128}
+              value={password.current} onChange={event => setPassword(prev => ({ ...prev, current: event.target.value }))} />
+            <Input label="Neues Passwort" type="password" autoComplete="new-password" required minLength={8} maxLength={128}
+              value={password.next} onChange={event => setPassword(prev => ({ ...prev, next: event.target.value }))} />
+            <Input label="Neues Passwort bestätigen" type="password" autoComplete="new-password" required minLength={8} maxLength={128}
+              value={password.confirmation} onChange={event => setPassword(prev => ({ ...prev, confirmation: event.target.value }))} />
+            {passwordError && <p role="alert" className="text-rose-700">{passwordError}</p>}
+            {passwordSuccess && <p role="status" className="text-green-700">{passwordSuccess}</p>}
+            <Button type="submit">{passwordSaving ? 'Passwort wird geändert …' : 'Passwort ändern'}</Button>
+          </fieldset>
+        </form>
       </main>
     </div>
   );

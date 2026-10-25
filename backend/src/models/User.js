@@ -1,4 +1,4 @@
-const { getDatabase, enqueueWrite } = require('../config/database');
+const { getDatabase, enqueueWrite, withTransaction } = require('../config/database');
 
 async function createUser(email, passwordHash) {
   const result = await enqueueWrite(db => db.run(
@@ -57,7 +57,6 @@ async function updatePreferences(id, {
   notificationWeeklyEnabled,
   notificationStatusEnabled
 }) {
-  const db = getDatabase();
   const fields = [];
   const values = [];
 
@@ -101,7 +100,16 @@ async function updatePreferences(id, {
   }
 
   values.push(id);
-  await enqueueWrite(database => database.run(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values));
+  await withTransaction(async database => {
+    const current = await database.get('SELECT * FROM users WHERE id = ?', [id]);
+    const changedTimes = dose_times && Object.entries(dose_times).some(([slot, value]) => current && value !== current[`dose_time_${slot}`]);
+    if (changedTimes) {
+      const now = new Date();
+      await require('../services/stockScheduler').settleUser(database, id, now);
+      await database.run('UPDATE medications SET scheduler_anchor_at = ? WHERE user_id = ?', [now.toISOString(), id]);
+    }
+    await database.run(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
+  });
   return getPreferences(id);
 }
 

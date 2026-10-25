@@ -4,8 +4,11 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
+import deLocale from '@fullcalendar/core/locales/de';
 import Header from '../components/Layout/Header';
 import api from '../services/api';
+import useLiveRefresh from '../hooks/useLiveRefresh';
+import DataFreshness from '../components/Common/DataFreshness';
 
 function localDateString(date) {
   const year = date.getFullYear();
@@ -23,6 +26,8 @@ function CalendarPage() {
   const [calendarView, setCalendarView] = useState('dayGridMonth');
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const calendarRef = useRef(null);
+  const savedView = useRef(null);
+  const [updatedAt, setUpdatedAt] = useState(null);
 
   useEffect(() => {
     loadMedications();
@@ -41,13 +46,12 @@ function CalendarPage() {
       .then(({ preferences }) => {
         if (!active) return;
         if (preferences?.calendarView) {
+          savedView.current = preferences.calendarView;
           setCalendarView(preferences.calendarView);
         }
+        setPreferencesLoaded(true);
       })
-      .catch(() => {})
-      .finally(() => {
-        if (active) setPreferencesLoaded(true);
-      });
+      .catch(() => { if (active) setError('Ansichtseinstellungen konnten nicht geladen werden.'); });
     return () => {
       active = false;
     };
@@ -59,18 +63,21 @@ function CalendarPage() {
     if (calendarApi && calendarApi.view.type !== calendarView) {
       calendarApi.changeView(calendarView);
     }
-  }, [calendarView, preferencesLoaded]);
+  }, [calendarView, preferencesLoaded, loading]);
 
   useEffect(() => {
-    if (!preferencesLoaded) return;
-    api.updatePreferences({ calendarView }).catch(() => {});
+    if (!preferencesLoaded || savedView.current === calendarView) return;
+    api.updatePreferences({ calendarView })
+      .then(() => { savedView.current = calendarView; })
+      .catch(() => setError('Kalenderansicht konnte nicht gespeichert werden.'));
   }, [calendarView, preferencesLoaded]);
 
-  const loadMedications = async () => {
+  const loadMedications = async (background = false) => {
     try {
-      setLoading(true);
+      if (!background) setLoading(true);
       const data = await api.getMedications();
       setMedications(data.medications || []);
+      setUpdatedAt(new Date().toISOString());
       setError('');
     } catch (err) {
       setError('Fehler beim Laden der Medikamente: ' + err.message);
@@ -78,6 +85,8 @@ function CalendarPage() {
       setLoading(false);
     }
   };
+
+  const online = useLiveRefresh(() => loadMedications(true));
 
   // Konvertiere Medikamente in FullCalendar Events
   const events = useMemo(() => {
@@ -157,6 +166,7 @@ function CalendarPage() {
     <>
       <Header />
       <div className="mx-auto max-w-7xl px-4 py-8">
+        <DataFreshness updatedAt={updatedAt} online={online} />
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900">Medikamenten-Kalender</h1>
           <p className="mt-2 text-gray-600">
@@ -180,8 +190,12 @@ function CalendarPage() {
               center: 'title',
               right: isMobile ? 'listMonth' : 'dayGridMonth,listMonth'
             }}
-            locale="de"
+            locale={deLocale}
+            buttonIcons={false}
+            buttonHints={{ prev: 'Vorheriger Monat', next: 'Nächster Monat' }}
             buttonText={{
+              prev: '‹',
+              next: '›',
               today: 'Heute',
               month: 'Monat',
               week: 'Woche',
@@ -199,7 +213,7 @@ function CalendarPage() {
             fixedWeekCount={false}
             showNonCurrentDates={false}
             datesSet={(arg) => {
-              if (arg.view.type !== calendarView) {
+              if (preferencesLoaded && arg.view.type !== calendarView) {
                 setCalendarView(arg.view.type);
               }
             }}

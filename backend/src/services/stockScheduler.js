@@ -1,156 +1,70 @@
 const cron = require('node-cron');
-const { getDatabase, withTransaction } = require('../config/database');
+const { withTransaction } = require('../config/database');
 const { runStatusDetectionNow } = require('./notificationScheduler');
 
 let schedulerTask = null;
 let schedulerRunning = false;
 
-function getZonedParts(date = new Date(), timeZone = process.env.TZ || 'Europe/Berlin') {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23'
-  }).formatToParts(date).reduce((result, part) => {
-    result[part.type] = part.value;
-    return result;
-  }, {});
-  return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}` };
-}
+const { parseTimestamp, zonedParts: getZonedParts, addDays, dueDate } = require('../utils/dates');
 
-function addDays(dateString, days) {
-  const [year, month, day] = dateString.split('-').map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
-function compareTimes(left, right) {
-  return left.localeCompare(right);
-}
-
-async function processDeduction({ medicationId, userId, slot, scheduledFor, amount, nextDueAt = undefined }) {
-  return withTransaction(async db => {
-    const medication = await db.get(
-      'SELECT * FROM medications WHERE id = ? AND user_id = ?',
-      [medicationId, userId]
-    );
-    if (!medication) return false;
-
-    try {
-      await db.run(
-        `INSERT INTO stock_deductions (medication_id, user_id, slot, scheduled_for)
-         VALUES (?, ?, ?, ?)`,
-        [medicationId, userId, slot, scheduledFor]
-      );
-    } catch (error) {
-      if (error.code === 'SQLITE_CONSTRAINT') return false;
-      throw error;
-    }
-
-    const oldStock = medication.current_stock;
-    const newStock = Math.max(0, oldStock - amount);
-    if (nextDueAt !== undefined) {
-      await db.run(
-        `UPDATE medications SET current_stock = ?, next_due_at = ?, updated_at = CURRENT_TIMESTAMP
-         WHERE id = ? AND user_id = ?`,
-        [newStock, nextDueAt, medicationId, userId]
-      );
-    } else {
-      await db.run(
-        `UPDATE medications SET current_stock = ?, updated_at = CURRENT_TIMESTAMP
-         WHERE id = ? AND user_id = ?`,
-        [newStock, medicationId, userId]
-      );
-    }
-    await db.run(
-      `INSERT INTO history (medication_id, user_id, action, old_stock, new_stock)
-       VALUES (?, ?, ?, ?, ?)`,
-      [medicationId, userId, `auto_deduction_${slot}`, oldStock, newStock]
-    );
-    return true;
-  });
-}
-
-async function dailyDatesToProcess(db, medication, slot, today, currentTime, targetTime, timeZone) {
-  const last = await db.get(
-    `SELECT MAX(scheduled_for) AS last_date FROM stock_deductions
-     WHERE medication_id = ? AND slot = ?`,
-    [medication.id, slot]
+async function deduct(db, medication, slot, scheduledFor, amount, nextDueAt) {
+  const result = await db.run(
+    `INSERT OR IGNORE INTO stock_deductions (medication_id, user_id, slot, scheduled_for)
+     VALUES (?, ?, ?, ?)`, [medication.id, medication.user_id, slot, scheduledFor]
   );
-  const lastEligibleDate = compareTimes(currentTime, targetTime) >= 0 ? today : addDays(today, -1);
-  const createdTimestamp = medication.created_at.includes('T')
-    ? medication.created_at
-    : `${medication.created_at.replace(' ', 'T')}Z`;
-  const created = getZonedParts(new Date(createdTimestamp), timeZone);
-  if (!last?.last_date) {
-    if (lastEligibleDate !== today) return [];
-    if (created.date === today && compareTimes(created.time, targetTime) > 0) return [];
-    return [today];
-  }
-
-  const dates = [];
-  let cursor = addDays(last.last_date, 1);
-  while (cursor <= lastEligibleDate && dates.length < 366) {
-    if (cursor >= created.date) dates.push(cursor);
-    cursor = addDays(cursor, 1);
-  }
-  return dates;
+  if (!result.changes) return;
+  const newStock = Math.max(0, medication.current_stock - amount);
+  await db.run(`UPDATE medications SET current_stock = ?, next_due_at = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ? AND user_id = ?`, [newStock, nextDueAt ?? medication.next_due_at, medication.id, medication.user_id]);
+  await db.run(`INSERT INTO history (medication_id, user_id, action, old_stock, new_stock)
+    VALUES (?, ?, ?, ?, ?)`, [medication.id, medication.user_id, `auto_deduction_${slot}`, medication.current_stock, newStock]);
+  medication.current_stock = newStock;
 }
 
-async function processDailySlot(user, slot, amountField, today, currentTime, timeZone) {
-  const targetTime = user[`dose_time_${slot}`];
-  if (!targetTime) return;
-  const db = getDatabase();
-  const medications = await db.all(
-    `SELECT * FROM medications
-     WHERE user_id = ? AND interval_days = 1 AND ${amountField} > 0`,
-    [user.id]
-  );
-  for (const medication of medications) {
-    const dates = await dailyDatesToProcess(db, medication, slot, today, currentTime, targetTime, timeZone);
-    for (const scheduledFor of dates) {
-      await processDeduction({
-        medicationId: medication.id,
-        userId: user.id,
-        slot,
-        scheduledFor,
-        amount: medication[amountField]
-      });
-    }
-  }
-}
-
-async function processIntervalMedications(user, today, currentTime, timeZone) {
-  if (!user.dose_time_noon || compareTimes(currentTime, user.dose_time_noon) < 0) return;
-  const medications = await getDatabase().all(
-    `SELECT * FROM medications
-     WHERE user_id = ? AND interval_days > 1 AND dosage_per_interval > 0`,
-    [user.id]
-  );
-  for (const medication of medications) {
-    if (!medication.next_due_at || Number.isNaN(new Date(medication.next_due_at).getTime())) {
-      console.error(`Stock-Scheduler: Medikament ${medication.id} hat kein gültiges next_due_at`);
-      continue;
-    }
-    let dueDate = getZonedParts(new Date(medication.next_due_at), timeZone).date;
-    let iterations = 0;
-    while (dueDate <= today && iterations < 366) {
-      const nextDueDate = addDays(dueDate, medication.interval_days);
-      const processed = await processDeduction({
-        medicationId: medication.id,
-        userId: user.id,
-        slot: 'interval',
-        scheduledFor: dueDate,
-        amount: medication.dosage_per_interval,
-        nextDueAt: `${nextDueDate}T12:00:00`
-      });
-      if (!processed) break;
-      dueDate = nextDueDate;
-      iterations++;
+/** Settles a user's old plan inside the caller's transaction before changing it. */
+async function settleUser(db, userId, now = new Date()) {
+  const user = await db.get('SELECT * FROM users WHERE id = ?', [userId]);
+  if (!user) return;
+  const { date: today, time } = getZonedParts(now);
+  const medications = await db.all('SELECT * FROM medications WHERE user_id = ?', [userId]);
+  for (const med of medications) {
+    const anchorValue = med.scheduler_anchor_at || med.created_at;
+    const anchorDate = parseTimestamp(anchorValue);
+    if (Number.isNaN(anchorDate.getTime())) continue;
+    const anchor = getZonedParts(anchorDate);
+    if (med.interval_days === 1) {
+      for (const slot of ['morning', 'noon', 'evening']) {
+        const amount = med[`dosage_${slot}`];
+        const target = user[`dose_time_${slot}`];
+        if (!amount || !target) continue;
+        const last = await db.get(`SELECT MAX(scheduled_for) AS date FROM stock_deductions
+          WHERE medication_id = ? AND user_id = ? AND slot = ?`, [med.id, userId, slot]);
+        const end = time >= target ? today : addDays(today, -1);
+        // Old installations without a cursor start today; an explicit anchor
+        // prevents historical doses from touching a newly measured stock.
+        let cursor = last.date ? addDays(last.date, 1) : today;
+        if (cursor < anchor.date) cursor = anchor.date;
+        if (cursor === anchor.date && anchor.time >= target) cursor = addDays(cursor, 1);
+        for (let count = 0; cursor <= end && count < 366; count++, cursor = addDays(cursor, 1)) {
+          await deduct(db, med, slot, cursor, amount);
+        }
+      }
+    } else if (med.next_due_at && med.dosage_per_interval > 0) {
+      if (Number.isNaN(parseTimestamp(med.next_due_at).getTime())) continue;
+      let cursor = dueDate(med.next_due_at);
+      const target = user.dose_time_noon;
+      if (!target) continue;
+      const end = time >= target ? today : addDays(today, -1);
+      // Skip elapsed doses covered by the measurement without changing stock.
+      while (cursor < anchor.date || (cursor === anchor.date && anchor.time >= target)) {
+        cursor = addDays(cursor, med.interval_days);
+      }
+      for (let count = 0; cursor <= end && count < 366; count++) {
+        const next = addDays(cursor, med.interval_days);
+        await deduct(db, med, 'interval', cursor, med.dosage_per_interval, `${next}T12:00:00`);
+        cursor = next;
+      }
+      await db.run('UPDATE medications SET next_due_at = ? WHERE id = ? AND user_id = ?', [`${cursor}T12:00:00`, med.id, userId]);
     }
   }
 }
@@ -158,20 +72,11 @@ async function processIntervalMedications(user, today, currentTime, timeZone) {
 async function checkAndDeductForAllUsers(now = new Date()) {
   if (schedulerRunning) return;
   schedulerRunning = true;
-  const timeZone = process.env.TZ || 'Europe/Berlin';
-  const { date: today, time: currentTime } = getZonedParts(now, timeZone);
   try {
-    const users = await getDatabase().all(
-      `SELECT id, dose_time_morning, dose_time_noon, dose_time_evening FROM users`
-    );
-    for (const user of users) {
-      await processDailySlot(user, 'morning', 'dosage_morning', today, currentTime, timeZone);
-      await processDailySlot(user, 'noon', 'dosage_noon', today, currentTime, timeZone);
-      await processDailySlot(user, 'evening', 'dosage_evening', today, currentTime, timeZone);
-      await processIntervalMedications(user, today, currentTime, timeZone);
-    }
-    // Status detection piggybacks on the stock tick. Mail failures must never
-    // abort the deduction pass — wrap in a self-contained catch.
+    await withTransaction(async db => {
+      const users = await db.all('SELECT id FROM users');
+      for (const user of users) await settleUser(db, user.id, now);
+    });
     await runStatusDetectionNow().catch(error => console.error('Stock-Scheduler: Statuserkennung fehlgeschlagen:', error));
   } finally {
     schedulerRunning = false;
@@ -208,5 +113,6 @@ module.exports = {
   stopStockScheduler,
   runStockDeductionNow,
   getZonedParts,
-  addDays
+  addDays,
+  settleUser
 };

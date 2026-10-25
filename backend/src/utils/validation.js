@@ -1,3 +1,4 @@
+const { validCalendarDate, zonedParts, dueDate } = require('./dates');
 function validateEmail(email) {
   const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return typeof email === 'string' && email.length <= 254 && re.test(email);
@@ -7,10 +8,10 @@ function validatePassword(password) {
   return typeof password === 'string' && password.length >= 8 && password.length <= 128;
 }
 
-function validateMedication(data) {
+function validateMedication(data, { archive = false } = {}) {
   const errors = [];
 
-  if (!data.name || data.name.trim().length === 0) {
+  if (typeof data.name !== 'string' || data.name.trim().length === 0) {
     errors.push('Name ist erforderlich');
   } else if (data.name.length > 100) {
     errors.push('Name darf maximal 100 Zeichen lang sein');
@@ -56,7 +57,7 @@ function validateMedication(data) {
 
   // Validate next_due_at if provided
   if (data.next_due_at !== undefined && data.next_due_at !== null) {
-    const dateError = validateNextDueAt(data.next_due_at);
+    const dateError = validateNextDueAt(data.next_due_at, { archive });
     if (dateError) {
       errors.push(dateError);
     }
@@ -69,11 +70,12 @@ function isFiniteNumber(value) {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
-function validateNextDueAt(dateString) {
+function validateNextDueAt(dateString, { archive = false } = {}) {
   if (!dateString) {
     return null; // Optional field
   }
 
+  if (typeof dateString !== 'string' || !validCalendarDate(dateString) || !/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})?)?$/.test(dateString)) return 'Nächste Einnahme muss ein gültiges Datum sein';
   const date = new Date(dateString);
 
   // Check if valid date
@@ -81,9 +83,8 @@ function validateNextDueAt(dateString) {
     return 'Nächste Einnahme muss ein gültiges Datum sein';
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  if (date < today) {
+  if (archive) return null;
+  if (dueDate(dateString) < zonedParts(new Date()).date) {
     return 'Nächste Einnahme darf nicht in der Vergangenheit liegen';
   }
 

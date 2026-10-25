@@ -63,7 +63,7 @@ test('Health, Mandantentrennung, Validierung und Import/Export-Vertrag', async (
   const exported = await request.get('/api/data/export', { headers: auth(userA.token) });
   expect(exported.ok()).toBeTruthy();
   const exportedData = (await exported.json()).data;
-  expect(exportedData.version).toBe('2.0.0');
+  expect(exportedData.version).toBe('2.1.0');
   expect(exportedData.medications[0].interval_days).toBe(7);
   expect(exportedData.medications[0]).not.toHaveProperty('user_id');
   expect(exportedData.medications[0]).not.toHaveProperty('photo_path');

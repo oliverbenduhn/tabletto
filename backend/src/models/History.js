@@ -7,17 +7,18 @@ async function createHistoryEntry({ medicationId, userId, action, oldStock, newS
     [medicationId, userId, action, oldStock, newStock]
   ));
   const db = getDatabase();
-  return db.get('SELECT * FROM history WHERE id = ?', [result.lastID]);
+  return db.get('SELECT * FROM history WHERE id = ? AND user_id = ?', [result.lastID, userId]);
 }
 
-async function getHistoryByMedication(medicationId, userId, limit = 50) {
+async function getHistoryByMedication(medicationId, userId, limit = 50, cursor = null) {
   const db = getDatabase();
   return db.all(
     `SELECT * FROM history
      WHERE medication_id = ? AND user_id = ?
-     ORDER BY timestamp DESC
+     ${cursor ? 'AND (julianday(timestamp) < julianday(?) OR (julianday(timestamp) = julianday(?) AND id < ?))' : ''}
+     ORDER BY julianday(timestamp) DESC, id DESC
      LIMIT ?`,
-    [medicationId, userId, limit]
+    [medicationId, userId, ...(cursor ? [cursor.timestamp, cursor.timestamp, cursor.id] : []), limit]
   );
 }
 

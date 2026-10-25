@@ -19,7 +19,7 @@ vollständiger Restore-Test eines extern gesicherten Produktionsbackups.
 
 `playwright.config.js` verwendet:
 
-- `baseURL`: `http://127.0.0.1:3000`
+- `baseURL`: Desktop `http://127.0.0.1:3030`, Mobile `http://127.0.0.1:3031`
 - Locale `de-DE`
 - Zeitzone `Europe/Berlin`
 - einen Worker und keine vollständige Parallelisierung
@@ -28,13 +28,14 @@ vollständiger Restore-Test eines extern gesicherten Produktionsbackups.
 - HTML-Report in `playwright-report/`
 - Artefakte in `test-results/artifacts/`
 
-Der Webserver-Befehl baut das Frontend und startet das Backend. Testwerte:
+`npm run test:e2e` baut zunächst das Frontend. Playwright startet je Projekt
+ein Backend mit eigener temporärer DB. Gemeinsame Testwerte:
 
 ```text
 JWT_SECRET=tabletto-e2e-only-secret
-DB_PATH=/tmp/tabletto-e2e.db
+DB_PATH=/tmp/tabletto-e2e-desktop.db bzw. /tmp/tabletto-e2e-mobile.db
 ENABLE_STOCK_SCHEDULER=false
-PORT=3000
+PORT=3030 bzw. 3031
 ```
 
 Eindeutige E-Mail- und Medikamentnamen verhindern Kollisionen. Backend-Tests
@@ -63,8 +64,9 @@ die Datumsvalidierung den Test nicht durch Zeitablauf blockiert.
 
 Die API-Suite ergänzt Health, Intervallfelder, parallele Bestandsaddition,
 Importrollback, leeren Restore, fremde Benutzerzugriffe und manipulierte Uploads.
-Noch nicht automatisiert sind Passwortänderung, Rate-Limit-Zeitfenster und ein
-vollständiger externer Restore.
+Passwortänderung wird zusätzlich im Audit-Regressionsflow geprüft. Noch nicht
+automatisiert sind das Abwarten realer Rate-Limit-Zeitfenster und ein vollständiger
+externer Produktionsrestore.
 
 ## UX-Audit
 
@@ -140,3 +142,39 @@ npx playwright install --with-deps chromium
 2. vollständiger Backup-/Restore-Test inklusive Uploads
 3. Rate-Limit- und Passwortänderungsfälle
 4. weitere repräsentative historische Schemaversionen
+
+## Audit-Regressionen
+
+`backend/test/audit.test.js` prüft mit temporären synthetischen Daten:
+
+- Export-/Import-Rundlauf ohne Doppelabzug und konservativen Legacy-Restore,
+- alte Archive, beschädigte Metadaten, Null-/Teilbestand und Tagesdosissumme,
+- Messung nach Downtime und Planänderung mit Abrechnung des alten Plans,
+- SMTP-Fehler, erneuten Versand und konkurrierende Statusprüfung,
+- blockierte Reads bis zum Rollback sowie Importrollback inklusive Abzugsmarker,
+- atomaren Fotoaustausch, referenzabhängige Bereinigung und Backupfehler,
+- DB-/Fotokonsistenz bei konkurrierendem Austausch, auch mit SQLite-WAL.
+
+`backend/test/frontend-dates.test.js` prüft UTC-Tageswechsel und Sommer-/Winterzeit
+für die gemeinsame Anzeigehilfe. `migration.test.js` prüft bestehendes Schema,
+Wiederanlauf und die neue Ankerspalte.
+
+`tests/e2e/audit-regressions.spec.js` enthält Benutzerreisen für Speicherfehler und
+Wiederholung, Bruchbestand, Tastatur-Fotoauswahl, Passwortänderung, Preferences-Retry,
+CSP-/Locale-Kalender, Historienpagination und Aktualisierung bei Fokusrückkehr.
+Die Tests laufen auf Desktop Chrome und Pixel 7, speichern kritische Screenshots
+und prüfen Seiten-Overflow. Bestehende UX-Checkpoints prüfen zusätzlich Touch-Ziele
+und Layoutverschiebung; das ist kein vollständiger Screenreader-/Kontrastaudit.
+
+```bash
+npm test --prefix backend
+npm run test:e2e
+```
+
+
+Letzter vollständiger Audit-Behebungslauf am 25.10.2026: 22 Backendtests und 54
+Playwright-Tests erfolgreich, zwei viewportunabhängige API-Duplikate im
+Mobileprojekt übersprungen. Containerimage, isolierter Produktionsstart,
+Health/PWA/CSP, Auth-/Bestands-/Import-/Export-Smokecheck und Containerbackup
+wurden ebenfalls erfolgreich geprüft. Testdaten und Artefakte bleiben außerhalb
+der versionierten Änderung.

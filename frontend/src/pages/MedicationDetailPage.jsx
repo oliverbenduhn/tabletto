@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Header from '../components/Layout/Header';
 import MedicationDetail from '../components/Medications/MedicationDetail';
@@ -7,6 +7,8 @@ import Modal from '../components/Common/Modal';
 import Button from '../components/Common/Button';
 import { formatDateTime } from '../utils/dateFormatter';
 import api from '../services/api';
+import useLiveRefresh from '../hooks/useLiveRefresh';
+import DataFreshness from '../components/Common/DataFreshness';
 
 const HISTORY_LABELS = {
   add_package: 'Packung hinzugefügt',
@@ -22,6 +24,10 @@ function MedicationDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [medication, setMedication] = useState(null);
+  const [updatedAt, setUpdatedAt] = useState(null);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState('');
   const [history, setHistory] = useState([]);
   const [error, setError] = useState('');
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -35,24 +41,49 @@ function MedicationDetailPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [loading, setLoading] = useState(true);
+  const fetchGeneration = useRef(0);
 
-  const fetchMedication = async () => {
+  const fetchMedication = async (background = false) => {
+    const generation = ++fetchGeneration.current;
     setError('');
     try {
       const { medication } = await api.getMedication(id);
+      const result = !background || history.length <= 50 ? await api.getMedicationHistory(id) : null;
+      if (generation !== fetchGeneration.current) return;
+      if (result) {
+        setHistory(result.history);
+        setNextCursor(result.next_cursor);
+      }
       setMedication(medication);
-      const { history } = await api.getMedicationHistory(id);
-      setHistory(history);
+      setUpdatedAt(new Date().toISOString());
     } catch (err) {
-      setError(err.message);
+      if (generation === fetchGeneration.current) setError(err.message);
     } finally {
-      setLoading(false);
+      if (generation === fetchGeneration.current) setLoading(false);
     }
   };
 
   useEffect(() => {
+    setLoading(true);
+    setMedication(null);
+    setHistory([]);
+    setNextCursor(null);
     fetchMedication();
+    return () => { fetchGeneration.current++; };
   }, [id]);
+
+  const online = useLiveRefresh(() => fetchMedication(true), isEditModalOpen || Boolean(stockAction) || photoUploading || isDeleting || historyLoading);
+  const loadOlderHistory = async () => {
+    setHistoryLoading(true);
+    setHistoryError('');
+    try {
+      const result = await api.getMedicationHistory(id, 50, nextCursor);
+      setHistory(prev => [...prev, ...result.history]);
+      setNextCursor(result.next_cursor);
+    } catch (err) {
+      setHistoryError(err.message);
+    } finally { setHistoryLoading(false); }
+  };
 
   useEffect(() => {
     if (!feedback) return;
@@ -144,7 +175,7 @@ function MedicationDetailPage() {
       setIsEditModalOpen(false);
       setFeedback('Medikament wurde aktualisiert.');
     } catch (err) {
-      setError(err.message);
+      throw err;
     } finally {
       setIsUpdating(false);
     }
@@ -159,6 +190,7 @@ function MedicationDetailPage() {
         </div>
       )}
       <main className="mx-auto max-w-5xl space-y-6 px-4 py-8">
+        <DataFreshness updatedAt={updatedAt} online={online} />
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="ghost" onClick={() => navigate(-1)} className="w-full sm:w-auto">
             ← Zurück
@@ -187,7 +219,7 @@ function MedicationDetailPage() {
               <p className="text-xs uppercase tracking-wide text-gray-400">Historie</p>
               <h2 className="text-xl font-semibold text-gray-900">Bestandsbewegungen</h2>
             </div>
-            <Button variant="secondary" onClick={fetchMedication} className="w-full sm:w-auto">
+            <Button variant="secondary" onClick={() => fetchMedication()} className="w-full sm:w-auto">
               Verlauf aktualisieren
             </Button>
           </div>
@@ -206,10 +238,14 @@ function MedicationDetailPage() {
             ))}
             {!history.length && <li className="text-sm text-gray-500">Keine Historie vorhanden.</li>}
           </ul>
+          {historyError && <p role="alert" className="mt-3 text-rose-700">{historyError}</p>}
+          {nextCursor && <Button variant="secondary" className="mt-4" onClick={loadOlderHistory} disabled={historyLoading}>
+            {historyLoading ? 'Lade ältere Einträge …' : 'Ältere Einträge laden'}
+          </Button>}
         </div>
         <Modal
           isOpen={isEditModalOpen}
-          onClose={() => setIsEditModalOpen(false)}
+          onClose={() => !isUpdating && setIsEditModalOpen(false)}
           title="Medikament bearbeiten"
         >
           <MedicationForm
@@ -230,9 +266,10 @@ function MedicationDetailPage() {
               {stockAction === 'add_package' ? 'Packungsgröße (Tabletten)' : 'Neuer Bestand'}
               <input
                 type="number"
-                min={stockAction === 'add_package' ? '1' : '0'}
-                step="1"
-                inputMode="numeric"
+                min="0"
+                max="10000"
+                step="any"
+                inputMode="decimal"
                 value={stockAmount}
                 onChange={event => setStockAmount(event.target.value)}
                 className="min-h-11 rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"

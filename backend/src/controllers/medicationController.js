@@ -24,16 +24,7 @@ function enrichMedication(medication) {
   return { ...medication, ...stats, photo_url: createPhotoUrl(medication) };
 }
 
-function removePhotoFile(photoPath) {
-  if (!photoPath) return;
-  const fullPath = resolveUploadPath(photoPath);
-  if (!fullPath) return;
-  fs.unlink(fullPath, err => {
-    if (err && err.code !== 'ENOENT') {
-      console.error('Fehler beim Löschen des Fotos:', err);
-    }
-  });
-}
+const { removeUnreferencedPhoto: removePhotoFile } = require('../utils/photoCleanup');
 
 async function validateImageFile(file) {
   if (!file) return true;
@@ -68,6 +59,7 @@ async function getMedication(req, res) {
 }
 
 async function createMedication(req, res) {
+  req.body = req.body || {};
   const photoPath = req.file ? toRelativeMedicationPath(req.file.filename) : null;
   const dailyDose = Number(req.body.dosage_morning || 0) + Number(req.body.dosage_noon || 0) + Number(req.body.dosage_evening || 0);
   const intervalDays = Number(req.body.interval_days || 1);
@@ -81,20 +73,20 @@ async function createMedication(req, res) {
     warning_threshold_days: Number(req.body.warning_threshold_days || 7),
     photo_path: photoPath,
     interval_days: intervalDays,
-    dosage_per_interval: req.body.dosage_per_interval !== undefined
+    dosage_per_interval: intervalDays === 1 ? dailyDose : req.body.dosage_per_interval !== undefined
       ? Number(req.body.dosage_per_interval)
       : dailyDose,
     next_due_at: intervalDays > 1 ? (req.body.next_due_at || null) : null
   };
 
   if (req.file && !await validateImageFile(req.file)) {
-    removePhotoFile(photoPath);
+    await removePhotoFile(photoPath);
     return res.status(400).json({ error: 'Die hochgeladene Datei ist kein unterstütztes Bild' });
   }
 
   const errors = validateMedication(payload);
   if (errors.length) {
-    removePhotoFile(photoPath);
+    await removePhotoFile(photoPath);
     return res.status(400).json({ error: errors.join(', ') });
   }
 
@@ -102,7 +94,7 @@ async function createMedication(req, res) {
     const medication = await Medication.createMedication(req.user.id, payload);
     res.status(201).json({ medication: enrichMedication(medication) });
   } catch (error) {
-    removePhotoFile(photoPath);
+    await removePhotoFile(photoPath);
     throw error;
   }
 }
@@ -134,6 +126,7 @@ async function updateMedication(req, res) {
   }
 
   const updated = await Medication.updateMedication(req.params.id, req.user.id, payload);
+  if (!updated) return res.status(404).json({ error: 'Medikament nicht gefunden' });
   res.json({ medication: enrichMedication(updated) });
 }
 
@@ -146,12 +139,12 @@ async function deleteMedication(req, res) {
   if (!deleted) {
     return res.status(404).json({ error: 'Medikament nicht gefunden' });
   }
-  removePhotoFile(existing.photo_path);
+  await removePhotoFile(deleted.photo_path);
   res.json({ message: 'Medikament gelöscht' });
 }
 
 async function updateStock(req, res) {
-  const { action, amount } = req.body;
+  const { action, amount } = req.body || {};
   if (!['add_package', 'set_stock'].includes(action)) {
     return res.status(400).json({ error: 'Unbekannte Aktion' });
   }
@@ -180,8 +173,11 @@ async function updateStock(req, res) {
       throw error;
     }
     await db.run(
-      'UPDATE medications SET current_stock = ?, updated_at = CURRENT_TIMESTAMP, last_stock_measured_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?',
-      [newStock, req.params.id, req.user.id]
+      `UPDATE medications SET current_stock = ?, updated_at = CURRENT_TIMESTAMP,
+       last_stock_measured_at = CASE WHEN ? = 'set_stock' THEN CURRENT_TIMESTAMP ELSE last_stock_measured_at END,
+       scheduler_anchor_at = CASE WHEN ? = 'set_stock' THEN strftime('%Y-%m-%dT%H:%M:%fZ','now') ELSE scheduler_anchor_at END
+       WHERE id = ? AND user_id = ?`,
+      [newStock, action, action, req.params.id, req.user.id]
     );
     const historyResult = await db.run(
       'INSERT INTO history (medication_id, user_id, action, old_stock, new_stock) VALUES (?, ?, ?, ?, ?)',
@@ -209,31 +205,47 @@ async function getHistory(req, res) {
 
   const requestedLimit = Number(req.query.limit || 50);
   const limit = Number.isInteger(requestedLimit) ? Math.max(1, Math.min(requestedLimit, 200)) : 50;
-  const history = await History.getHistoryByMedication(req.params.id, req.user.id, limit);
-  res.json({ history });
+  let cursor = null;
+  if (req.query.cursor !== undefined) {
+    try {
+      if (typeof req.query.cursor !== 'string' || req.query.cursor.length > 512) throw new Error();
+      cursor = JSON.parse(Buffer.from(req.query.cursor, 'base64url').toString('utf8'));
+      if (!Number.isSafeInteger(cursor?.id) || cursor.id < 1 || typeof cursor.timestamp !== 'string' ||
+          Number.isNaN(require('../utils/dates').parseTimestamp(cursor.timestamp).getTime())) throw new Error();
+    } catch {
+      return res.status(400).json({ error: 'Ungültiger Historiencursor' });
+    }
+  }
+  const rows = await History.getHistoryByMedication(req.params.id, req.user.id, limit + 1, cursor);
+  const history = rows.slice(0, limit);
+  const last = history.at(-1);
+  const next_cursor = rows.length > limit ? Buffer.from(JSON.stringify({ id: last.id, timestamp: last.timestamp })).toString('base64url') : null;
+  res.json({ history, next_cursor });
 }
 
 async function uploadPhoto(req, res) {
-  const medication = req.medication;
-
   if (!req.file) {
     return res.status(400).json({ error: 'Kein Foto hochgeladen' });
   }
 
   const photoPath = toRelativeMedicationPath(req.file.filename);
   if (!await validateImageFile(req.file)) {
-    removePhotoFile(photoPath);
+    await removePhotoFile(photoPath);
     return res.status(400).json({ error: 'Die hochgeladene Datei ist kein unterstütztes Bild' });
   }
   let updated;
   try {
     updated = await Medication.updatePhoto(req.params.id, req.user.id, photoPath);
   } catch (error) {
-    removePhotoFile(photoPath);
+    await removePhotoFile(photoPath);
     throw error;
   }
-  removePhotoFile(medication.photo_path);
-  res.json({ medication: enrichMedication(updated) });
+  if (!updated) {
+    await removePhotoFile(photoPath);
+    return res.status(404).json({ error: 'Medikament nicht gefunden' });
+  }
+  await removePhotoFile(updated.oldPhotoPath);
+  res.json({ medication: enrichMedication(updated.medication) });
 }
 
 async function requireMedication(req, res, next) {
@@ -275,8 +287,9 @@ async function deletePhoto(req, res) {
   }
 
   const updated = await Medication.updatePhoto(req.params.id, req.user.id, null);
-  removePhotoFile(medication.photo_path);
-  res.json({ medication: enrichMedication(updated) });
+  if (!updated) return res.status(404).json({ error: 'Medikament nicht gefunden' });
+  await removePhotoFile(updated.oldPhotoPath);
+  res.json({ medication: enrichMedication(updated.medication) });
 }
 
 module.exports = {

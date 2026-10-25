@@ -169,7 +169,11 @@ sequenceDiagram
     Controller-->>UI: Medikament + History-Eintrag
 ```
 
-Alle Prozessschreibvorgänge teilen eine Queue. Bestandsupdate und History-Insert
+Alle Datenbankzugriffe teilen eine Queue. Zusammenhängende Export-Reads belegen
+die Queue bis zum vollständigen Snapshot; asynchroner Kontext hält verschachtelte
+Helfer innerhalb desselben Zugriffs. Reads anderer Requests sehen keine
+uncommitteten Zwischenstände. Bestands- und Planänderungen sind transaktional.
+Alle Prozessschreibvorgänge teilen diese Queue. Bestandsupdate und History-Insert
 laufen in derselben SQLite-Transaktion und werden gemeinsam zurückgerollt.
 
 ## Automatischer Bestandsabzug
@@ -197,8 +201,11 @@ mit aktivem Status-Toggle wird der aktuelle `warning_status` ermittelt und
 gegen `medications.last_notified_status` verglichen. Verschlechterungen
 (`good → warning`, `good → critical`, `warning → critical`) lösen eine
 konsolidierte E-Mail pro Benutzer aus; Erholungen aktualisieren nur den
-Marker, ohne Mail. SMTP-Fehler werden geloggt und schluckt; das eigentliche
-Funktionsverhalten ist davon unabhängig.
+Marker, ohne Mail. Bei Verschlechterungen wird der Marker erst nach erfolgreichem
+Versand gespeichert. SMTP-Fehler werden datensparsam protokolliert und im nächsten
+Tick erneut versucht. Gleichzeitige Statusprüfungen teilen denselben Lauf. Ein
+Prozessabbruch nach SMTP-Annahme und vor Marker-Commit kann eine doppelte Mail
+erzeugen; SMTP bietet keine Exactly-once-Garantie.
 
 Die wöchentliche Bestandsinfo-Mail feuert sonntags um 18:00 Europe/Berlin
 (`WEEKLY_DIGEST_CRON` überschreibbar) und iteriert Benutzer mit aktivem
@@ -239,7 +246,10 @@ sequenceDiagram
 ```
 
 Der Import ist ein Replace, kein Merge. Die gesamte Datei wird vor der
-Transaktion validiert. Fotos und `photo_path` werden nicht exportiert oder
+Transaktion validiert. Format 2.1.0 enthält zusätzlich Scheduler-Abzugsmarker und
+Mess-/Plananker; beide werden mit neuen Medikament-IDs wiederhergestellt. Alte
+Exporte erhalten Exportzeitpunkt oder Restorezeit als konservativen Messanker.
+Fotos und `photo_path` werden nicht exportiert oder
 importiert; alte lokale Fotos werden nach erfolgreichem Commit entfernt.
 
 ## Foto-Upload
@@ -248,6 +258,10 @@ Multer akzeptiert JPEG, PNG, GIF und WebP bis fünf MiB, verwendet eine feste
 Erweiterung pro MIME-Typ und prüft anschließend die Dateisignatur. Fotos werden
 über kurzlebig HMAC-signierte URLs ausgeliefert; das Upload-Root ist nicht
 öffentlich gemountet. Pfadauflösung muss innerhalb des Upload-Roots bleiben.
+Fotopfade werden atomar ausgetauscht; der Austausch liefert den tatsächlich
+ersetzten Pfad zurück. Bereinigung prüft unter `BEGIN IMMEDIATE`, dass keine
+Referenz mehr existiert. Dieselbe DB-Sperre schützt parallele Backups vor
+Dateilöschung während der Fotokopie.
 
 ## Kalenderdatenfluss
 
@@ -266,3 +280,19 @@ ein Klick navigiert zur Medikamentendetailseite.
 - SQLite und Uploads bilden gemeinsam den vollständigen persistenten Zustand.
 - Das Frontend vertraut nicht auf versteckte Routen als Autorisierung; das
   Backend muss jede benutzerbezogene Operation selbst begrenzen.
+
+## Datenfrische und Fehlerzustände
+
+Dashboard, Kalender und Detailseite laden nach Tab-/Fokusrückkehr, Netzrückkehr
+und alle 60 Sekunden sichtbare Daten neu. Während eines geöffneten
+Bearbeitungs-/Bestandsdialogs pausiert die Detailseite, damit Eingaben erhalten
+bleiben. Die letzte Aktualisierung und ein Offline-Hinweis bleiben sichtbar;
+Fehler löschen keine bereits geladenen Daten. Eine aufgeklappte Historie wird
+bei Hintergrundaktualisierung nicht gekürzt. Sie lädt ältere Ereignisse über
+einen Zeitstempel-/ID-Cursor nach. FullCalendar erhält das deutsche Locale und
+sichtbare Navigationszeichen; die CSP erlaubt ausschließlich für Schriften
+zusätzlich die von FullCalendar eingebetteten `data:`-Ressourcen.
+
+Einstellungen werden erst nach erfolgreichem Laden und einer Benutzeränderung
+geschrieben. Ein Ladefehler sperrt das Einstellungsformular und bietet Retry;
+Defaultwerte werden nicht als vermeintlich geladene Werte gespeichert.

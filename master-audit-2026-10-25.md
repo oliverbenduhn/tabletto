@@ -276,3 +276,70 @@ Die geprüften Seiten sind funktionale Verwaltungsoberflächen, kein Marketing-T
 ### Hinweise zur Beweislage
 
 Screenshots und Traces des ausgeführten Laufs liegen lokal unter `test-results/artifacts/`, der HTML-Bericht unter `playwright-report/`; diese generierten Artefakte sind kein Teil der abzugebenden Änderung. Die Befunde nennen die am geprüften Commit gültigen Fundstellen; nach Korrekturen können sich Zeilen verschieben. Aus fehlender UI oder fehlendem Test wird kein medizinischer Funktionsbedarf abgeleitet: Tabletto bleibt Bestandsverwaltung ohne Therapie- oder Dosierungsempfehlungen.
+
+
+## Behebungsstand nach dem Audit
+
+Die obigen Befunde dokumentieren unverändert den damaligen Stand. Die anschließende
+Behebung umfasst alle 26 Punkte; M12 war bereits Bestandteil von Version 1.8.1.
+
+| Befund | Umsetzung / Nachweis |
+|---|---|
+| H01 | Export 2.1.0 einschließlich Abzugsmarker; Rundlauf beim selben Tick getestet |
+| H02 | Archivvalidierung erlaubt vergangene Termine; Legacy-Restore dokumentiert |
+| H03 | Fehlende vollständige Intervallmenge ergibt null Reichweite; deterministischer Test |
+| H04 | Messanker, Abrechnung des alten Plans vor Plan-/Zeitänderung; Nachholtests |
+| H05 | Tagesdosissumme in Anlage, Import, Änderung, Migration und Berechnung |
+| H06 | Marker erst nach Versand; Fehler bleibt wiederholbar, parallele Erkennung gebündelt |
+| H07 | Koordinierte Reads/Writes und zusammenhängender Export; Rollback-Barriere getestet |
+| H08 | Gemeinsame Pfad-/Umgebungskonfiguration für Server und Backup |
+| M01/M02 | Formular fängt Submitfehler; Dialog/Eingaben bleiben offen; Desktop-/Mobile-Regression |
+| M03 | Typ-/Bodyvalidierung; ungültige API-Payloads getestet |
+| M04 | Zeitstempel, Quell-IDs, History und Marker vor Replace validiert |
+| M05 | Atomarer Fotoaustausch, Bereinigung unter DB-Sperre; Paralleltests |
+| M06 | Gemeinsame UTC-Darstellung auch für Messzeit; Sommer-/Winterzeitprüfung |
+| M07 | Bruchbestände in Anlage und Korrektur; Browserprüfung |
+| M08 | Passwortformular und fachliche 401 ohne Logout; Browserprüfung |
+| M09 | Tastaturbutton für Fotoauswahl; zugeordnete Formularlabels |
+| M10 | Sichtbare Navigation und explizites font-src für eingebettete Schrift; CSP-Browserprüfung |
+| M11 | Keine Defaultwrites nach Ladefehler, gesperrte Einstellungen mit Retry |
+| M12 | Relativer Testtermin bereits in 1.8.1 korrigiert |
+| M13 | Backup hält Schreibsperre bis nach Fotokopie; fehlende Fotos führen zu Fehler |
+| M14 | Aktualisierung bei Fokus, Sichtbarkeit, Netzrückkehr und im Minutenintervall; Datenalter sichtbar |
+| L01 | Deutsches FullCalendar-Locale registriert |
+| L02 | Stabile Cursor-Paginierung und Nachladen älterer Bewegungen |
+| L03 | Präzise Beschriftung „Alle 30 Tage“ / „Alle 90 Tage“ |
+| S01 | Backend- und Browserregressionen an Prozessgrenzen, steuerbare Zeit/Versandfunktion, API-Duplikate entfernt |
+
+Betriebsgrenzen: SMTP kann nach erfolgreicher Annahme und einem Prozessabbruch vor
+dem Marker-Commit eine doppelte Warnung erzeugen; eine Exactly-once-Garantie über
+SMTP besteht nicht. Legacy-Exporte enthalten keinen vollständigen Abzugszustand;
+ihr Exportzeitpunkt (ersatzweise Restorezeit) wird konservativ als Bestandsanker
+verwendet. Deshalb lassen sich vor diesem Zeitpunkt fehlende Abbuchungen nicht
+rekonstruieren. Details und Recovery stehen in `docs/operations.md`.
+
+
+Zusatzprüfung bei der Behebung: Der Containerbau meldete zuvor nicht untersuchte
+Abhängigkeitsschwachstellen. Die Lockfiles und betroffenen direkten Pakete wurden
+aktualisiert; `npm audit` meldet für Backend und Frontend am 25.10.2026 jeweils
+0 bekannte Schwachstellen. Das CSS-Parser-Override und Nodemailer-Update sind in
+`docs/security.md` dokumentiert und in die abschließenden Prüfungen eingeschlossen.
+
+
+### Abschließende Verifikation der Behebung
+
+| Prüfung | Ergebnis |
+|---|---|
+| Backend inkl. Migration, Importrollback, SMTP-/Zeit-/Backupregressionen | 22 bestanden |
+| Vollständige Playwright-Suite mit aktualisierten Abhängigkeiten | 54 bestanden, 2 planmäßig übersprungen |
+| Zusätzliche Breiten in beiden Browserprojekten | 320, 375, 414 und 768 CSS-Pixel erfolgreich |
+| Frontend-Produktionsbuild | erfolgreich; CSS-Artefakt nach Parser-Update unverändert |
+| Imagebau aus finalen Paket-/Quellständen | `tabletto:audit-fixes` erfolgreich |
+| Isolierter Produktionscontainer | Health, PWA/CSP, Registrierung/Login, Tagesdosissumme, Bruchbestand und Export/Import erfolgreich |
+| Backup im Produktionscontainer | erfolgreich; Testcontainer mit flüchtiger DB anschließend entfernt |
+| Backend-Syntax, Dokumentationslinks, `git diff --check` | erfolgreich |
+| `npm audit` Backend / Frontend | jeweils 0 bekannte Schwachstellen zum Prüfzeitpunkt |
+
+Die Umsetzung ist als Release 1.8.2 vorgesehen. Die historische
+Auditbeschreibung wurde nicht als damaliger Prüfnachweis umgeschrieben;
+Behebungen und heutige Ergebnisse stehen ausschließlich in diesem Nachtrag.
