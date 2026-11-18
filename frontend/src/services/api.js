@@ -30,7 +30,7 @@ class ApiService {
           window.location.assign(`/login?returnTo=${encodeURIComponent(window.location.pathname)}`);
         }
       }
-      throw new Error(error.error || 'Ein Fehler ist aufgetreten');
+      throw Object.assign(new Error(error.error || 'Ein Fehler ist aufgetreten'), { status: response.status });
     }
 
     return response.json();
@@ -103,9 +103,10 @@ class ApiService {
     });
   }
 
-  async updateStock(id, action, amount) {
+  async updateStock(id, action, amount, key) {
     return this.request(`/medications/${id}/stock`, {
       method: 'POST',
+      headers: { 'Idempotency-Key': key },
       body: JSON.stringify({ action, amount })
     });
   }

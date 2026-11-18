@@ -95,6 +95,16 @@ async function initDatabase() {
 
     CREATE INDEX IF NOT EXISTS idx_stock_deductions_user_date
       ON stock_deductions(user_id, scheduled_for);
+
+    CREATE TABLE IF NOT EXISTS stock_operations (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      operation_key TEXT NOT NULL,
+      medication_id INTEGER NOT NULL REFERENCES medications(id) ON DELETE CASCADE,
+      payload TEXT NOT NULL,
+      response TEXT NOT NULL,
+      PRIMARY KEY (user_id, operation_key)
+    );
+    CREATE INDEX IF NOT EXISTS idx_stock_operations_medication ON stock_operations(medication_id);
   `);
 
   // Migration: Add last_stock_measured_at column if it doesn't exist

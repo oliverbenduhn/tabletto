@@ -82,12 +82,9 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
       setError('Nächste Einnahme ist erforderlich');
       return;
     }
-    if (form.interval_days > 1 && form.next_due_at) {
-      const selectedDate = new Date(form.next_due_at);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      if (selectedDate < today) {
+    const unchangedDue = isEditMode && form.next_due_at === initialData?.next_due_at?.slice(0, 10);
+    if (form.interval_days > 1 && !unchangedDue) {
+      if (form.next_due_at < localDateString()) {
         setError('Nächste Einnahme darf nicht in der Vergangenheit liegen');
         return;
       }
@@ -103,6 +100,7 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
         ? `${form.next_due_at}T12:00:00`
         : null
     };
+    if (form.interval_days > 1 && unchangedDue) delete submitData.next_due_at;
 
     // In edit mode, don't send photoFile
     try {
@@ -273,7 +271,7 @@ const MedicationForm = forwardRef(function MedicationForm({ onSubmit, isSubmitti
               name="next_due_at"
               value={form.next_due_at}
               onChange={handleChange}
-              min={localDateString()}
+              min={isEditMode ? undefined : localDateString()}
               required
               className="min-h-11 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
             />

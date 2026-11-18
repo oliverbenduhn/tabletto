@@ -96,7 +96,7 @@ garantiert.
 | `interval_days` | INTEGER | ja | `1` | Tage zwischen Einnahmen |
 | `dosage_per_interval` | REAL | ja | `0` | Dosis eines Intervalltermins |
 | `next_due_at` | DATETIME | ja | null | nächster Fälligkeitstermin |
-| `scheduler_anchor_at` | DATETIME | ja | null | Ausgangspunkt für zukünftige Abzüge nach Messung oder Planänderung |
+| `scheduler_anchor_at` | DATETIME | ja | null | Ausgangspunkt für zukünftige Abzüge nach Anlage eines Tagesplans, Messung oder Planänderung |
 | `last_notified_status` | TEXT | ja | null | Idempotenzmarker für Statuswarnungen (`good`/`warning`/`critical`) |
 | `created_at` | DATETIME | ja | aktuelle DB-Zeit | Anlagezeit |
 | `updated_at` | DATETIME | ja | aktuelle DB-Zeit | letzte fachliche Änderung |
@@ -244,6 +244,15 @@ Beim Import:
 - Zeitwerte benötigen eine definierte UTC-/Lokalzeit-Semantik.
 - Eine neue Spalte erfordert Schema, Migration, Models, Import/Export, API,
   Dokumentation und Tests.
+
+### `stock_operations`
+
+Beim Start idempotent angelegte Tabelle, auch für bestehende Datenbanken.
+Primärschlüssel `(user_id, operation_key)`. Medikament-ID, Nutzlast und Antwort
+werden in derselben Transaktion wie Bestand, Messanker und History gespeichert.
+Die Fremdschlüssel auf Benutzer und Medikament löschen die Einträge kaskadierend,
+auch bei einem Import-Reset. JSON-Archive enthalten keine Vorgangs-IDs; der Import
+vergibt neue Medikament-IDs. Die Antworten bleiben bis zum Löschen erhalten.
 
 ### Semantik des Scheduler-Ankers
 

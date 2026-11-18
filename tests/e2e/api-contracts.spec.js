@@ -60,6 +60,35 @@ test('Health, Mandantentrennung, Validierung und Import/Export-Vertrag', async (
   const afterConcurrentAdd = await request.get(`/api/medications/${medication.id}`, { headers: auth(userA.token) });
   expect((await afterConcurrentAdd.json()).medication.current_stock).toBe(8);
 
+  const book = (action, amount, key, token = userA.token, id = medication.id) => request.post(`/api/medications/${id}/stock`, {
+    headers: { ...auth(token), 'Idempotency-Key': key }, data: { action, amount }
+  });
+  expect((await book('add_package', 2, 'invalid key')).status()).toBe(400);
+  const duplicates = await Promise.all([book('add_package', 2, 'pack'), book('add_package', 2, 'pack')]);
+  expect(duplicates.map(r => r.status())).toEqual([200, 200]);
+  const pack = await duplicates[0].json();
+  expect(await duplicates[1].json()).toEqual(pack);
+  expect(pack.medication.current_stock).toBe(10);
+  expect((await book('add_package', 3, 'pack')).status()).toBe(409);
+  expect((await book('set_stock', 2, 'pack')).status()).toBe(409);
+  expect((await book('add_package', 2, 'pack', userB.token)).status()).toBe(404);
+  const medB = (await (await request.post('/api/medications', { headers: auth(userB.token), data: medicationPayload })).json()).medication;
+  expect((await book('add_package', 2, 'pack', userB.token, medB.id)).status()).toBe(200);
+
+  const measurement = await book('set_stock', 5, 'measurement');
+  expect(measurement.status()).toBe(200);
+  const measured = await measurement.json();
+  expect((await book('add_package', 2, 'later')).status()).toBe(200);
+  expect(await (await book('set_stock', 5, 'measurement')).json()).toEqual(measured);
+  const current = (await (await request.get(`/api/medications/${medication.id}`, { headers: auth(userA.token) })).json()).medication;
+  expect(current.current_stock).toBe(7);
+  expect(current.scheduler_anchor_at).toBeTruthy();
+  expect(current.scheduler_anchor_at).toBe(measured.medication.scheduler_anchor_at);
+  expect(current.last_stock_measured_at).toBe(measured.medication.last_stock_measured_at);
+  const { history } = await (await request.get(`/api/medications/${medication.id}/history`, { headers: auth(userA.token) })).json();
+  expect(history).toHaveLength(5);
+  expect(history.filter(entry => entry.action === 'set_stock')).toHaveLength(1);
+
   const exported = await request.get('/api/data/export', { headers: auth(userA.token) });
   expect(exported.ok()).toBeTruthy();
   const exportedData = (await exported.json()).data;
@@ -81,6 +110,11 @@ test('Health, Mandantentrennung, Validierung und Import/Export-Vertrag', async (
   });
   expect(emptyImport.ok()).toBeTruthy();
   expect((await emptyImport.json()).imported.medications).toBe(0);
+  expect((await book('add_package', 2, 'pack')).status()).toBe(404);
+  const recreated = (await (await request.post('/api/medications', { headers: auth(userA.token), data: medicationPayload })).json()).medication;
+  expect(recreated.id).not.toBe(medication.id);
+  expect((await book('add_package', 2, 'pack', userA.token, recreated.id)).status()).toBe(200);
+  expect((await (await book('add_package', 2, 'pack', userB.token, medB.id)).json()).medication.current_stock).toBe(6);
 });
 
 test('Uploadinhalt wird unabhängig vom behaupteten MIME-Typ geprüft', async ({ request }, testInfo) => {

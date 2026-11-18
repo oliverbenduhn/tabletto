@@ -40,9 +40,9 @@ async function settleUser(db, userId, now = new Date()) {
         const last = await db.get(`SELECT MAX(scheduled_for) AS date FROM stock_deductions
           WHERE medication_id = ? AND user_id = ? AND slot = ?`, [med.id, userId, slot]);
         const end = time >= target ? today : addDays(today, -1);
-        // Old installations without a cursor start today; an explicit anchor
-        // prevents historical doses from touching a newly measured stock.
-        let cursor = last.date ? addDays(last.date, 1) : today;
+        // Only an explicit plan or measurement anchor justifies backfilling
+        // a slot that has never been booked.
+        let cursor = last.date ? addDays(last.date, 1) : med.scheduler_anchor_at ? anchor.date : today;
         if (cursor < anchor.date) cursor = anchor.date;
         if (cursor === anchor.date && anchor.time >= target) cursor = addDays(cursor, 1);
         for (let count = 0; cursor <= end && count < 366; count++, cursor = addDays(cursor, 1)) {

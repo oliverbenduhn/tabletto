@@ -7,6 +7,7 @@ import Modal from '../components/Common/Modal';
 import Button from '../components/Common/Button';
 import { formatDateTime } from '../utils/dateFormatter';
 import api from '../services/api';
+import { getCurrentUser } from '../services/auth';
 import useLiveRefresh from '../hooks/useLiveRefresh';
 import DataFreshness from '../components/Common/DataFreshness';
 
@@ -20,14 +21,23 @@ const HISTORY_LABELS = {
   auto_deduction_interval: 'Automatischer Intervall-Abzug'
 };
 
+const UNCLEAR_STOCK = 'Buchungsstatus unklar. Wiederhole dieselbe Buchung, um den Status zu klären.';
+
 function MedicationDetailPage() {
   const { id } = useParams();
+  return <MedicationDetailView key={id} id={id} />;
+}
+
+function MedicationDetailView({ id }) {
   const navigate = useNavigate();
   const [medication, setMedication] = useState(null);
   const [updatedAt, setUpdatedAt] = useState(null);
   const [nextCursor, setNextCursor] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState('');
+  const [historyUpdatedAt, setHistoryUpdatedAt] = useState(null);
+  const [historyStale, setHistoryStale] = useState(false);
+  const historyGeneration = useRef(0);
   const [history, setHistory] = useState([]);
   const [error, setError] = useState('');
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -36,6 +46,11 @@ function MedicationDetailPage() {
   const [stockAction, setStockAction] = useState(null);
   const [stockAmount, setStockAmount] = useState('');
   const [isStockUpdating, setIsStockUpdating] = useState(false);
+  const stockKey = `tabletto:stock:${getCurrentUser()?.id}:${id}`;
+  const [pendingStock, setPendingStock] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem(stockKey)); } catch { return null; }
+  });
+  const stockInFlight = useRef(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isPhotoDeleteModalOpen, setIsPhotoDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -43,17 +58,33 @@ function MedicationDetailPage() {
   const [loading, setLoading] = useState(true);
   const fetchGeneration = useRef(0);
 
-  const fetchMedication = async (background = false) => {
+  const refreshHistory = async () => {
+    const generation = ++historyGeneration.current;
+    setHistoryLoading(true);
+    setHistoryError('');
+    try {
+      const result = await api.getMedicationHistory(id);
+      if (generation !== historyGeneration.current) return;
+      setHistory(result.history);
+      setNextCursor(result.next_cursor);
+      setHistoryUpdatedAt(new Date().toISOString());
+      setHistoryStale(false);
+    } catch (err) {
+      if (generation === historyGeneration.current) {
+        setHistoryError(err.message);
+        setHistoryStale(true);
+      }
+    } finally {
+      if (generation === historyGeneration.current) setHistoryLoading(false);
+    }
+  };
+
+  const fetchMedication = async () => {
     const generation = ++fetchGeneration.current;
     setError('');
     try {
       const { medication } = await api.getMedication(id);
-      const result = !background || history.length <= 50 ? await api.getMedicationHistory(id) : null;
       if (generation !== fetchGeneration.current) return;
-      if (result) {
-        setHistory(result.history);
-        setNextCursor(result.next_cursor);
-      }
       setMedication(medication);
       setUpdatedAt(new Date().toISOString());
     } catch (err) {
@@ -69,20 +100,32 @@ function MedicationDetailPage() {
     setHistory([]);
     setNextCursor(null);
     fetchMedication();
-    return () => { fetchGeneration.current++; };
+    refreshHistory();
+    return () => { fetchGeneration.current++; historyGeneration.current++; };
   }, [id]);
 
-  const online = useLiveRefresh(() => fetchMedication(true), isEditModalOpen || Boolean(stockAction) || photoUploading || isDeleting || historyLoading);
+  const online = useLiveRefresh(() => {
+    if (history.length > 50) {
+      setHistoryStale(true);
+      return fetchMedication();
+    }
+    return Promise.all([fetchMedication(), refreshHistory()]);
+  }, isEditModalOpen || Boolean(stockAction) || photoUploading || isDeleting || historyLoading);
   const loadOlderHistory = async () => {
+    if (historyLoading) return;
+    const generation = ++historyGeneration.current;
     setHistoryLoading(true);
     setHistoryError('');
     try {
       const result = await api.getMedicationHistory(id, 50, nextCursor);
+      if (generation !== historyGeneration.current) return;
       setHistory(prev => [...prev, ...result.history]);
       setNextCursor(result.next_cursor);
     } catch (err) {
-      setHistoryError(err.message);
-    } finally { setHistoryLoading(false); }
+      if (generation === historyGeneration.current) setHistoryError(err.message);
+    } finally {
+      if (generation === historyGeneration.current) setHistoryLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -93,29 +136,52 @@ function MedicationDetailPage() {
 
   const openStockDialog = action => {
     setError('');
-    setStockAmount(action === 'set_stock' ? String(medication?.current_stock ?? '') : '');
-    setStockAction(action);
+    setStockAmount(pendingStock ? String(pendingStock.amount) : action === 'set_stock' ? String(medication?.current_stock ?? '') : '');
+    setStockAction(pendingStock?.action ?? action);
   };
 
   const handleStockSubmit = async event => {
     event.preventDefault();
+    if (stockInFlight.current) return;
     const amount = Number(stockAmount);
     const isPackage = stockAction === 'add_package';
     if (!Number.isFinite(amount) || (isPackage ? amount <= 0 : amount < 0)) {
       setError(isPackage ? 'Packungsgröße muss größer als 0 sein' : 'Bestand darf nicht negativ sein');
       return;
     }
+    stockInFlight.current = true;
     setIsStockUpdating(true);
     setError('');
     try {
-      await api.updateStock(id, stockAction, amount);
-      await fetchMedication();
+      let operation = pendingStock;
+      if (!operation) {
+        operation = { action: stockAction, amount, key: crypto.getRandomValues(new Uint32Array(4)).join('-') };
+        try {
+          sessionStorage.setItem(stockKey, JSON.stringify(operation));
+        } catch {
+          setError('Vorgang konnte im Browser nicht gespeichert werden. Es wurde nichts gesendet.');
+          return;
+        }
+        setPendingStock(operation);
+      }
+      const result = await api.updateStock(id, operation.action, operation.amount, operation.key);
+      if (!pendingStock) setMedication(result.medication);
+      sessionStorage.removeItem(stockKey);
+      setPendingStock(null);
+      await Promise.all([fetchMedication(), refreshHistory()]);
       setFeedback(isPackage ? 'Packung wurde hinzugefügt.' : 'Bestand wurde aktualisiert.');
       setStockAction(null);
       setStockAmount('');
     } catch (err) {
-      setError(err.message);
+      if ([400, 404, 409].includes(err.status)) {
+        sessionStorage.removeItem(stockKey);
+        setPendingStock(null);
+        setError(err.message);
+      } else {
+        setError(UNCLEAR_STOCK);
+      }
     } finally {
+      stockInFlight.current = false;
       setIsStockUpdating(false);
     }
   };
@@ -202,7 +268,13 @@ function MedicationDetailPage() {
             Medikament löschen
           </Button>
         </div>
-        {error && <p className="rounded-md bg-rose-50 p-3 text-sm text-rose-600">{error}</p>}
+        {error && !stockAction && <p className="rounded-md bg-rose-50 p-3 text-sm text-rose-600">{error}</p>}
+        {pendingStock && !stockAction && medication && (
+          <div className="rounded-md bg-amber-50 p-3 text-sm">
+            <p role="status">{UNCLEAR_STOCK}</p>
+            <Button onClick={() => openStockDialog(pendingStock.action)}>Buchung wiederholen</Button>
+          </div>
+        )}
         {loading && <p role="status" className="rounded-2xl bg-white/80 p-6 text-center text-gray-600">Medikament wird geladen …</p>}
         {!loading && !medication && <p className="rounded-2xl bg-white/80 p-6 text-center text-gray-700">Dieses Medikament ist nicht verfügbar.</p>}
         <MedicationDetail
@@ -219,10 +291,12 @@ function MedicationDetailPage() {
               <p className="text-xs uppercase tracking-wide text-gray-400">Historie</p>
               <h2 className="text-xl font-semibold text-gray-900">Bestandsbewegungen</h2>
             </div>
-            <Button variant="secondary" onClick={() => fetchMedication()} className="w-full sm:w-auto">
+            <Button variant="secondary" onClick={refreshHistory} className="w-full sm:w-auto">
               Verlauf aktualisieren
             </Button>
           </div>
+          <DataFreshness updatedAt={historyUpdatedAt} online={online} />
+          {historyStale && <p role="status" className="text-sm text-amber-800">Verlauf möglicherweise veraltet.</p>}
           <ul className="space-y-3 text-sm text-gray-600">
             {history.map(entry => (
               <li
@@ -271,19 +345,23 @@ function MedicationDetailPage() {
                 step="any"
                 inputMode="decimal"
                 value={stockAmount}
+                readOnly={Boolean(pendingStock) || isStockUpdating}
+                aria-describedby={error || (pendingStock && !isStockUpdating) ? 'stock-message' : undefined}
                 onChange={event => setStockAmount(event.target.value)}
                 className="min-h-11 rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 autoFocus
                 required
               />
             </label>
-            {error && <p className="rounded-md bg-rose-50 p-3 text-sm text-rose-600">{error}</p>}
+            {(error || (pendingStock && !isStockUpdating)) && (
+              <p id="stock-message" role="alert" className="rounded-md bg-rose-50 p-3 text-sm text-rose-600">{error || UNCLEAR_STOCK}</p>
+            )}
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <Button type="button" variant="secondary" onClick={() => setStockAction(null)} disabled={isStockUpdating}>
-                Abbrechen
+                {pendingStock ? 'Schließen' : 'Abbrechen'}
               </Button>
               <Button type="submit" disabled={isStockUpdating}>
-                {isStockUpdating ? 'Speichere...' : 'Bestätigen'}
+                {isStockUpdating ? 'Speichere...' : pendingStock ? 'Buchung wiederholen' : 'Bestätigen'}
               </Button>
             </div>
           </form>

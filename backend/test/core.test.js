@@ -14,6 +14,7 @@ const { initDatabase, getDatabase, closeDatabase } = require('../src/config/data
 const { validateMedication } = require('../src/utils/validation');
 const { calculateMedicationStats } = require('../src/utils/calculations');
 const { resolveUploadPath } = require('../src/utils/uploads');
+const { createMedication } = require('../src/models/Medication');
 const {
   startStockScheduler,
   stopStockScheduler,
@@ -105,4 +106,23 @@ test('Scheduler bucht denselben Slot idempotent und holt den Folgetag nach', asy
   row = await db.get('SELECT current_stock FROM medications WHERE id = ?', [medication.lastID]);
   assert.equal(row.current_stock, 8);
   assert.equal((await db.get('SELECT COUNT(*) AS count FROM stock_deductions WHERE medication_id = ?', [medication.lastID])).count, 2);
+});
+
+test('Erster Lauf holt Tagesabzüge ab dem verlässlichen Planbeginn idempotent nach', async () => {
+  const db = getDatabase();
+  const user = await db.run(`INSERT INTO users (email, password_hash, dose_time_morning)
+    VALUES ('catchup@example.test', 'hash', '08:00')`);
+  const med = await createMedication(user.lastID, {
+    name: 'Nachholtest', dosage_morning: 1, tablets_per_package: 20,
+    current_stock: 10, warning_threshold_days: 7
+  });
+  await db.run('UPDATE medications SET created_at = ?, scheduler_anchor_at = CASE WHEN scheduler_anchor_at IS NULL THEN NULL ELSE ? END WHERE id = ?',
+    ['2026-07-14T06:00:00Z', '2026-07-14T06:00:00Z', med.id]);
+  const tick = new Date('2026-07-17T06:00:00Z');
+  await runStockDeductionNow(tick);
+  await runStockDeductionNow(tick);
+  assert.equal((await db.get('SELECT current_stock FROM medications WHERE id = ?', [med.id])).current_stock, 7);
+  assert.deepEqual((await db.all('SELECT scheduled_for FROM stock_deductions WHERE medication_id = ? ORDER BY scheduled_for', [med.id]))
+    .map(row => row.scheduled_for), ['2026-07-15', '2026-07-16', '2026-07-17']);
+  assert.equal((await db.get('SELECT COUNT(*) AS count FROM history WHERE medication_id = ?', [med.id])).count, 3);
 });

@@ -16,10 +16,15 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/d
 
 ### Behoben
 
+- Manuelle Bestandsbuchungen werden bei Antwortverlust auch nach dem Neuladen desselben Tabs nicht doppelt ausgeführt.
+- Bestandsdetails bleiben bei Verlaufsfehlern nutzbar. Der Verlauf zeigt seine eigene Datenfrische; Buchungsfehler sind dem Eingabefeld zugeordnet.
+- Metadaten lassen sich auch bei unverändert überfälligem Intervalltermin bearbeiten.
+
 - Zusätzlich beim Containerbau erkannte Abhängigkeitsschwachstellen durch aktualisierte Lockfiles, Multer 2.5 und Nodemailer 10 sowie einen korrigierten CSS-Selector-Parser behoben.
 
 - Alle Befunde des Master-Audits: idempotenter Export-/Import-Rundlauf mit Format 2.1.0, Restore alter Archive, konsistente Reichweiten und Tagesdosierungen.
 - Scheduler berücksichtigt Bestandsmessungen und rechnet offene Abzüge vor Änderungen am Einnahmeplan mit dem alten Plan ab.
+- Fällige Tagesabzüge werden ab einem bekannten Planbeginn auch beim ersten Scheduler-Lauf nachgeholt. Altbestände ohne Anker werden nicht rückwirkend umgebucht.
 - Fehlgeschlagene Statusmails werden erneut versucht; Datenbankzugriffe und parallele Fotoänderungen sind koordiniert.
 - Backup verwendet dieselbe Konfiguration wie der Server und sichert Datenbank und referenzierte Fotos unter gemeinsamer Schreibsperre.
 - Speicherfehler erhalten Formulareingaben; Bruchbestände, Passwortänderung und Fotoauswahl per Tastatur sind erreichbar.

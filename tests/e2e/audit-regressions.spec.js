@@ -59,6 +59,145 @@ test('Speicherfehler erhält Eingaben; Bruchbestand und Tastatur-Fotoauswahl fun
   expect(unhandled).toEqual([]);
 });
 
+test('Bestandsbuchung bleibt nach Commit ohne Antwort über Reload wiederholbar', async ({ page, request }) => {
+  const { headers } = await session(page, request);
+  const med = await medication(request, headers);
+  const keys = [];
+  await page.route(`**/api/medications/${med.id}/stock`, async route => {
+    keys.push(route.request().headers()['idempotency-key']);
+    if (keys.length !== 1) return route.continue();
+    expect((await route.fetch()).status()).toBe(200);
+    await route.abort();
+  });
+  const dialog = page.getByRole('dialog', { name: 'Packung hinzufügen' });
+  const openAndConfirm = async () => {
+    await page.getByRole('button', { name: 'Packung hinzufügen' }).click();
+    await dialog.getByLabel('Packungsgröße (Tabletten)').fill('2');
+    await dialog.getByRole('button', { name: 'Bestätigen' }).click();
+  };
+  const assertBookings = async count => {
+    const { history } = await (await request.get(`/api/medications/${med.id}/history`, { headers })).json();
+    expect(history).toHaveLength(count);
+    expect(history[0].new_stock).toBe(7.5 + count * 2);
+  };
+  await page.goto(`/medication/${med.id}`);
+  await openAndConfirm();
+  await expect(dialog.getByRole('alert')).toContainText('Buchungsstatus unklar');
+  await assertBookings(1);
+  await page.reload();
+  await page.getByRole('button', { name: 'Buchung wiederholen' }).click();
+  await expect(dialog.getByLabel('Packungsgröße (Tabletten)')).toHaveValue('2');
+  await dialog.getByRole('button', { name: 'Buchung wiederholen' }).click();
+  await expect(dialog).toBeHidden();
+  await assertBookings(1);
+  await openAndConfirm();
+  await expect(dialog).toBeHidden();
+  await assertBookings(2);
+  expect(keys[0]).toBeTruthy();
+  expect(keys[1]).toBe(keys[0]);
+  expect(keys[2]).not.toBe(keys[0]);
+});
+
+test('Detail bleibt bei History-Ausfall bedienbar; Buchungsfehler ist dem Feld zugeordnet', async ({ page, request }) => {
+  const { headers } = await session(page, request);
+  const med = await medication(request, headers);
+  const historyUrl = `**/api/medications/${med.id}/history?*`;
+  await page.route(historyUrl, route => route.fulfill({ status: 500, json: { error: 'Verlauf nicht erreichbar' } }));
+  await page.goto(`/medication/${med.id}`);
+  await expect(page.getByText('Aktueller Bestand:').locator('..')).toContainText('7.5');
+  await expect(page.getByRole('alert')).toHaveText('Verlauf nicht erreichbar');
+  await page.getByRole('button', { name: 'Packung hinzufügen' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Packung hinzufügen' });
+  const amount = dialog.getByLabel('Packungsgröße (Tabletten)');
+  await amount.fill('10000');
+  await dialog.getByRole('button', { name: 'Bestätigen' }).click();
+  await expect(page.getByText('Bestand darf 10000 nicht überschreiten', { exact: true })).toHaveCount(1);
+  await expect(dialog.getByRole('alert')).toHaveText('Bestand darf 10000 nicht überschreiten');
+  await expect(amount).toHaveAccessibleDescription('Bestand darf 10000 nicht überschreiten');
+  await expect(amount).toHaveValue('10000');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await page.getByRole('button', { name: 'Packung hinzufügen' }).click();
+  await amount.fill('2');
+  await dialog.getByRole('button', { name: 'Bestätigen' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText('Aktueller Bestand:').locator('..')).toContainText('9.5');
+  await page.reload();
+  await expect(page.getByText('Aktueller Bestand:').locator('..')).toContainText('9.5');
+  await expect(page.getByRole('alert')).toHaveText('Verlauf nicht erreichbar');
+  await page.unroute(historyUrl);
+  await page.getByRole('button', { name: 'Verlauf aktualisieren' }).click();
+  await expect(page.getByText('Packung hinzugefügt', { exact: true })).toHaveCount(1);
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+test('Paginierter Verlauf zeigt veraltete Daten an und verwirft überholte Seiten', async ({ page, request }) => {
+  // Chromium may report offline in the loopback-only test namespace.
+  await page.addInitScript(() => Object.defineProperty(navigator, 'onLine', { get: () => true }));
+  const { headers } = await session(page, request);
+  const med = await medication(request, headers);
+  const book = () => request.post(`/api/medications/${med.id}/stock`, { headers, data: { action: 'add_package', amount: 1 } });
+  for (let i = 0; i < 51; i++) expect((await book()).status()).toBe(200);
+  await page.goto(`/medication/${med.id}`);
+  const older = page.getByRole('button', { name: 'Ältere Einträge laden' });
+  const refresh = page.getByRole('button', { name: 'Verlauf aktualisieren' });
+  const entries = page.getByText('Packung hinzugefügt', { exact: true });
+  await older.click();
+  await expect(entries).toHaveCount(51);
+  expect((await book()).status()).toBe(200);
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(page.getByText('Verlauf möglicherweise veraltet.')).toBeVisible();
+  await expect(page.getByText('Aktueller Bestand:').locator('..')).toContainText('59.5');
+  await refresh.click();
+  await expect(entries).toHaveCount(50);
+  await expect(page.getByText('Verlauf möglicherweise veraltet.')).toBeHidden();
+
+  const cursorUrl = url => url.pathname.endsWith(`/${med.id}/history`) && url.searchParams.has('cursor');
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  await page.route(cursorUrl, async route => {
+    const response = await route.fetch();
+    await gate;
+    await route.fulfill({ response });
+  }, { times: 1 });
+  const started = page.waitForRequest(req => cursorUrl(new URL(req.url())));
+  await older.click();
+  await started;
+  expect((await book()).status()).toBe(200);
+  await refresh.click();
+  await expect(page.getByText('59.5 → 60.5', { exact: true })).toBeVisible();
+  const delivered = page.waitForResponse(res => cursorUrl(new URL(res.url())));
+  release();
+  await delivered;
+  await older.click();
+  await expect(entries).toHaveCount(53);
+});
+
+test('Überfälligen Plan bei Namensänderung unverändert lassen', async ({ page, request }) => {
+  const { headers } = await session(page, request);
+  const due = '2020-01-02T17:15:00';
+  const imported = await request.post('/api/data/import', { headers, data: { data: { medications: [{
+    name: 'Überfälliger Plan', interval_days: 7, dosage_per_interval: 1, next_due_at: due,
+    tablets_per_package: 20, current_stock: 7.5, warning_threshold_days: 7
+  }], history: [] } } });
+  expect(imported.status()).toBe(200);
+  const [med] = (await (await request.get('/api/medications', { headers })).json()).medications;
+  const url = `/api/medications/${med.id}`;
+  expect((await request.put(url, { headers, data: { next_due_at: '2020-01-03T17:15:00' } })).status()).toBe(400);
+  await page.goto(`/medication/${med.id}`);
+  await page.getByRole('button', { name: 'Medikament bearbeiten' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Medikament bearbeiten' });
+  await dialog.getByLabel('Name', { exact: true }).fill('Neuer Name');
+  await dialog.getByRole('button', { name: 'Speichern', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Neuer Name' })).toBeVisible();
+  const current = (await (await request.get(url, { headers })).json()).medication;
+  expect(current.next_due_at).toBe(due);
+  expect(current.scheduler_anchor_at).toBe(med.scheduler_anchor_at);
+  expect(current.current_stock).toBe(med.current_stock);
+});
+
 test('Neuanlage bleibt bei Netzwerkfehler offen und kann erneut gespeichert werden', async ({ page, request }, testInfo) => {
   await session(page, request);
   await page.goto('/dashboard');
@@ -127,6 +266,7 @@ test('Kalender ist lokalisiert, CSP-konform und schreibt nach Ladefehler keine D
 });
 
 test('Historie paginiert ohne Duplikate; Fokus-Rückkehr aktualisiert Bestand', async ({ page, request }, testInfo) => {
+  await page.addInitScript(() => Object.defineProperty(navigator, 'onLine', { get: () => true }));
   const { headers } = await session(page, request);
   const med = await medication(request, headers);
   for (let i = 0; i < 55; i++) expect((await request.post(`/api/medications/${med.id}/stock`, { headers, data: { action: 'set_stock', amount: i } })).ok()).toBeTruthy();

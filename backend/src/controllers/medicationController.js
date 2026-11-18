@@ -4,7 +4,6 @@ const { calculateMedicationStats } = require('../utils/calculations');
 const { validateMedication } = require('../utils/validation');
 const fs = require('fs');
 const crypto = require('crypto');
-const { withTransaction } = require('../config/database');
 const { JWT_SECRET } = require('../config/jwt');
 const {
   resolveUploadPath,
@@ -100,11 +99,6 @@ async function createMedication(req, res) {
 }
 
 async function updateMedication(req, res) {
-  const existing = await Medication.getById(req.params.id, req.user.id);
-  if (!existing) {
-    return res.status(404).json({ error: 'Medikament nicht gefunden' });
-  }
-
   const payload = { ...req.body };
   ['dosage_morning', 'dosage_noon', 'dosage_evening', 'tablets_per_package', 'warning_threshold_days', 'interval_days', 'dosage_per_interval'].forEach(field => {
     if (payload[field] !== undefined) {
@@ -113,18 +107,6 @@ async function updateMedication(req, res) {
   });
 
   delete payload.current_stock;
-  const candidate = { ...existing, ...payload };
-  if (candidate.interval_days === 1) {
-    candidate.next_due_at = null;
-    candidate.dosage_per_interval = candidate.dosage_morning + candidate.dosage_noon + candidate.dosage_evening;
-    payload.next_due_at = null;
-    payload.dosage_per_interval = candidate.dosage_per_interval;
-  }
-  const errors = validateMedication(candidate);
-  if (errors.length) {
-    return res.status(400).json({ error: errors.join(', ') });
-  }
-
   const updated = await Medication.updateMedication(req.params.id, req.user.id, payload);
   if (!updated) return res.status(404).json({ error: 'Medikament nicht gefunden' });
   res.json({ medication: enrichMedication(updated) });
@@ -145,6 +127,10 @@ async function deleteMedication(req, res) {
 
 async function updateStock(req, res) {
   const { action, amount } = req.body || {};
+  const key = req.get('Idempotency-Key');
+  if (key !== undefined && !/^[A-Za-z0-9_-]{1,128}$/.test(key)) {
+    return res.status(400).json({ error: 'Ungültige Vorgangs-ID' });
+  }
   if (!['add_package', 'set_stock'].includes(action)) {
     return res.status(400).json({ error: 'Unbekannte Aktion' });
   }
@@ -152,49 +138,12 @@ async function updateStock(req, res) {
     return res.status(400).json({ error: 'Ungültiger Bestand' });
   }
 
-  const result = await withTransaction(async db => {
-    const medication = await db.get('SELECT * FROM medications WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
-    if (!medication) return null;
-    const delta = amount === undefined ? medication.tablets_per_package : amount;
-    if (action === 'add_package' && (!Number.isFinite(delta) || delta <= 0)) {
-      const error = new Error('Packungsgröße muss größer als 0 sein');
-      error.status = 400;
-      throw error;
-    }
-    if (action === 'set_stock' && (!Number.isFinite(amount) || amount < 0 || amount > 10000)) {
-      const error = new Error('Bestand muss zwischen 0 und 10000 liegen');
-      error.status = 400;
-      throw error;
-    }
-    const newStock = action === 'add_package' ? medication.current_stock + delta : amount;
-    if (newStock > 10000) {
-      const error = new Error('Bestand darf 10000 nicht überschreiten');
-      error.status = 400;
-      throw error;
-    }
-    await db.run(
-      `UPDATE medications SET current_stock = ?, updated_at = CURRENT_TIMESTAMP,
-       last_stock_measured_at = CASE WHEN ? = 'set_stock' THEN CURRENT_TIMESTAMP ELSE last_stock_measured_at END,
-       scheduler_anchor_at = CASE WHEN ? = 'set_stock' THEN strftime('%Y-%m-%dT%H:%M:%fZ','now') ELSE scheduler_anchor_at END
-       WHERE id = ? AND user_id = ?`,
-      [newStock, action, action, req.params.id, req.user.id]
-    );
-    const historyResult = await db.run(
-      'INSERT INTO history (medication_id, user_id, action, old_stock, new_stock) VALUES (?, ?, ?, ?, ?)',
-      [req.params.id, req.user.id, action, medication.current_stock, newStock]
-    );
-    return {
-      medication: await db.get('SELECT * FROM medications WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]),
-      historyEntry: await db.get('SELECT * FROM history WHERE id = ? AND user_id = ?', [historyResult.lastID, req.user.id])
-    };
-  });
+  const result = await Medication.bookStock(req.params.id, req.user.id, { action, amount, key });
 
   if (!result) return res.status(404).json({ error: 'Medikament nicht gefunden' });
 
-  res.json({
-    medication: enrichMedication(result.medication),
-    history_entry: result.historyEntry
-  });
+  if (result.conflict) return res.status(409).json({ error: 'Vorgangs-ID wurde bereits für eine andere Buchung verwendet' });
+  res.json({ ...result, medication: enrichMedication(result.medication) });
 }
 
 async function getHistory(req, res) {

@@ -145,6 +145,12 @@ npx playwright install --with-deps chromium
 
 ## Audit-Regressionen
 
+`api-contracts.spec.js` prüft parallele Bestands-Retries, Schlüsselkonflikte,
+Benutzertrennung, unveränderte Messanker und den Import-Reset.
+`audit-regressions.spec.js` prüft auf Desktop und Mobile Commit ohne Antwort mit
+Reload, isolierte Verlaufsfehler, überlappende History-Anfragen, Buchungsfehler
+mit Feldbezug und Metadaten-Edits bei unverändert überfälligem Intervalltermin.
+
 `backend/test/audit.test.js` prüft mit temporären synthetischen Daten:
 
 - Export-/Import-Rundlauf ohne Doppelabzug und konservativen Legacy-Restore,

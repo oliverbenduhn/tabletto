@@ -161,6 +161,9 @@ gehört.
 
 ### `PUT /api/medications/:id`
 
+Ein unveränderter gespeicherter Intervalltermin darf überfällig sein; ein neu
+gesetzter Termin wird weiterhin auf den zulässigen Datumsbereich geprüft.
+
 Partielles JSON-Update. Editierbar sind:
 
 - `name`
@@ -198,7 +201,7 @@ Packung addieren:
 { "action": "add_package", "amount": 20 }
 ```
 
-Wenn `amount` keine endliche Zahl ist, wird `tablets_per_package` verwendet.
+Nur wenn `amount` fehlt, wird `tablets_per_package` verwendet.
 
 Bestand absolut setzen:
 
@@ -223,8 +226,16 @@ Response:
 }
 ```
 
-Fehler: `400` unbekannte Aktion, negative/ungültige Menge oder nicht positive
-Packungsgröße; `404` unbekanntes/fremdes Medikament.
+Optionaler Header `Idempotency-Key`: 1–128 Zeichen aus `[A-Za-z0-9_-]`.
+Pro bestätigter Buchung einen neuen Schlüssel verwenden. Derselbe Benutzer erhält
+mit demselben Medikament, derselben Aktion und Menge (auch „fehlt“) den ursprünglichen
+Buchungsstand als `200` zurück, ohne Bestand, Messanker oder History erneut zu ändern.
+Die Antwort ist ein Snapshot der Buchung, kein aktueller Detailabruf; abgeleitete
+Felder und signierte Foto-URLs werden bei der Antwort neu erzeugt. Andere
+Buchungsdaten unter demselben Schlüssel ergeben `409`. Ohne Header bleibt jede
+Anfrage eine neue Buchung. Fehler: `400` ungültiger Schlüssel, Aktion oder Menge;
+`404` unbekanntes/fremdes Medikament. Löschen oder Import beendet die Gültigkeit
+der Schlüssel der entfernten Medikamente; alte IDs werden nicht neu vergeben.
 
 ### `GET /api/medications/:id/history?limit=50`
 
