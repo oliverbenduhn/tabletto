@@ -64,3 +64,16 @@ dt {
   min-width: 44px;
   min-height: 44px;
 }
+
+@media (max-width: 639px) {
+  .fc .fc-header-toolbar {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .fc .fc-header-toolbar .fc-toolbar-chunk:nth-child(2) {
+    order: -1;
+    flex: 0 0 100%;
+    text-align: center;
+  }
+}
