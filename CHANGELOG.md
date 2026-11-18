@@ -5,6 +5,14 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/lang/de/).
 
+## [1.8.3](https://github.com/oliverbenduhn/tabletto/compare/v1.8.2...v1.8.3) (2026-11-18)
+
+
+### Bug Fixes
+
+* resolve Tabletto stock and history audit findings ([dcab8b0](https://github.com/oliverbenduhn/tabletto/commit/dcab8b0e793a44b403253af875c992972363014e))
+* wrap calendar controls on narrow screens ([a715c82](https://github.com/oliverbenduhn/tabletto/commit/a715c829eebae27e8d2bf42bfc8f842cffc28dca))
+
 ## [1.8.2](https://github.com/oliverbenduhn/tabletto/compare/v1.8.1...v1.8.2) (2026-10-25)
 
 
